@@ -1,4 +1,4 @@
-#ifdef __VERSION_H
+#ifndef __VERSION_H
 #define __VERSION_H
 
 #define VERSION "V1.0"
