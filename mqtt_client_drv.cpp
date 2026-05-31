@@ -74,7 +74,6 @@ void mqtt_client_init(void) {
 
     // 2. 配置 MQTT 服务器及回调
     client.setServer(MQTT_SERVER, MQTT_PORT);
-    client.setCallback(mqtt_callback);
 }
 
 void mqtt_client_loop(void) {
@@ -90,3 +89,8 @@ bool mqtt_client_publish(const char* payload) {
     }
     return false;
 }
+// 提供给外部注册回调的接口
+void mqtt_client_set_callback(void (*callback)(char*, byte*, unsigned int)) {
+    client.setCallback(callback); // 直接把 PubSubClient 的回调指向传进来的函数
+}
+

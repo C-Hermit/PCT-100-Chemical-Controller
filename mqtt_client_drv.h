@@ -28,4 +28,6 @@ void mqtt_client_loop(void);
 // 供外部调用的发布接口
 bool mqtt_client_publish(const char* payload);
 
+// 允许外部传入自定义的 MQTT 消息处理函数
+void mqtt_client_set_callback(void (*callback)(char*, byte*, unsigned int));
 #endif

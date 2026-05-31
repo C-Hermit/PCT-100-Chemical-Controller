@@ -37,8 +37,8 @@ unsigned int ldr_get_lux(void)
     // 边界安全防御：防止分母为 0 或由于死区导致计算异常
     // 当 adc_val 极高（接近4095）时，代表全黑
     if (adc_val >= 4090) return 0;       
-    // 当 adc_val 极低（接近0）时，代表光线极强
-    if (adc_val <= 5) return 2000;       
+    // // 当 adc_val 极低（接近0）时，代表光线极强
+    // if (adc_val <= 5) return 2000;       
 
     // 1. 根据严密的代数推导计算 LDR 的实际阻值 (单位：欧姆)
     // 物理规律：光越亮，adc_val越小，r_ldr越小
@@ -51,7 +51,6 @@ unsigned int ldr_get_lux(void)
     // 照度公式：Lux = (常数 / R_ldr) ^ (1 / γ)
     double lux = pow(3251652.0 / r_ldr, 1.4); 
     
-
     return (unsigned int)lux;
 }
 #endif

@@ -119,12 +119,10 @@ void key_scan(void)
             {
                 if(key_getstate(i)==KEY_RELEASE)
                 {
-                    state[i]==0;
+                    state[i]=0;
                 }
             }
         }
-        
-
     }
 }
 
