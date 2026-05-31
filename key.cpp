@@ -2,95 +2,130 @@
 #define _KEY_C
 #include "key.h"
 
-// --- 轮询相关变量 (KEY1) ---
-static unsigned long pre_cnt = 0;
-static uint8_t key1_state = KEY_RELEASE;
-static uint8_t last_key1_physical = LOW;
 
-// --- 中断相关变量 (KEY2) ---
-// volatile 关键字确保多核/中断环境下变量的可见性，防止被编译器优化
-static volatile uint8_t key2_state = KEY_RELEASE; 
-static volatile unsigned long last_interrupt_time = 0;
+// 按键状态宏定义
+#define KEY_RELEASE 0
+#define KEY_PRESS   1
 
-// KEY2 的中断服务函数 (ISR)
-// 当 KEY2 引脚电平发生改变时自动调用
-void key2_isr(void)
-{
-    unsigned long interrupt_time = millis();
-    
-    // 1. 软件消抖：限制两次中断触发的间隔必须大于 150ms
-    if (interrupt_time - last_interrupt_time > 150) 
-    {
-        // 2. 核心：只有当确定是“按下”（LOW）时才触发状态翻转
-        // 松开（HIGH）时虽然也会进中断，但不满足这个条件，什么都不做
-        if (digitalRead(KEY2_PIN) == HIGH)
-        {
-            key2_state = !key2_state; // 状态翻转
-        }
-    }
-    
-    // 注意：时间戳的更新建议放在条件外面，或者只在有效触发时更新。
-    // 这里保持每次中断都更新，以确保滤除后续的连续抖动
-    last_interrupt_time = interrupt_time; 
-}
+uint8_t key_flag[KEY_COUNT]; //按键状态标志
+
 
 /**
- * @brief 初始化按键引脚及中断
+ * @brief 初始化按键引脚
  */
 void key_init(void)
 {
     // 1. 配置引脚为输入、默认下拉
     pinMode(KEY1_PIN, INPUT_PULLDOWN);
     pinMode(KEY2_PIN, INPUT_PULLDOWN);
-
-    // 2. 绑定 KEY2 的外部中断
-    // CHANGE 模式：电平由低变高、或由高变低时都会触发中断
-    attachInterrupt(digitalPinToInterrupt(KEY2_PIN), key2_isr, CHANGE);
 }
-
 /**
- * @brief 按键扫描函数（仅轮询 KEY1）
+ * @brief 检查按键引脚
+ */
+uint8_t key_check(uint8_t n, uint8_t flag)
+{
+    if(key_flag[n]&flag)
+    {
+        if(flag!=KEY_HOLD)
+        {
+            key_flag[n]&=~flag;
+        }
+        return 1;
+    }
+    return 0;
+}
+/**
+ * @brief 获取按键状态
+ */
+uint8_t key_getstate(uint8_t n)
+{
+    if(n==0)
+    {
+        if(digitalRead(KEY1_PIN)==1)
+        {
+            return KEY_PRESS;
+        }
+    }
+    else if(n==1)
+    {
+        if(digitalRead(KEY2_PIN)==1)
+        {
+            return KEY_PRESS;
+        }
+    }
+    return KEY_RELEASE;
+}
+/**
+ * @brief 按键扫描函数
  * 包含 20ms 的软件消抖逻辑
  */
-void key1_scan(void)
+void key_scan(void)
 {
-    unsigned long cur_cnt = millis();
+    static uint8_t i;
+    static uint8_t cur_state[KEY_COUNT],pre_state[KEY_COUNT];
+    static uint8_t state[KEY_COUNT];
+    static uint16_t time_cnt[KEY_COUNT];
+
+    static unsigned long pre_cnt=0;
+    unsigned long cur_cnt=millis();
+
     
     // 20ms 定时轮询 KEY1
-    if (cur_cnt - pre_cnt >= 10) 
+    if (cur_cnt - pre_cnt >= 20) 
     {
         pre_cnt = cur_cnt;
-
-        // --- KEY1 逻辑：锁死按键（自锁开关 / 状态翻转） ---
-        uint8_t cur_key1_physical = digitalRead(KEY1_PIN);
-
-        // 检测上升沿：从低电平变为高电平（代表刚刚被按下）
-        if (cur_key1_physical == HIGH && last_key1_physical == LOW)
+        for (i = 0; i < KEY_COUNT; i++)
         {
-            key1_state = !key1_state; // 状态取反（0变1，1变0）
+            pre_state[i]=cur_state[i];
+            cur_state[i]=key_getstate(i);
+
+            if(time_cnt[i]>0)
+            {
+                time_cnt[i]--;
+            }
+
+            if(cur_state[i]==KEY_PRESS)
+            {
+                key_flag[i]|=KEY_HOLD;
+            }
+            else
+            {
+                key_flag[i]&=~KEY_HOLD;
+            }
+            
+            if(state[i]==0)
+            {
+                if(key_getstate(i)==KEY_PRESS)
+                {
+                    time_cnt[i]=KEY_TIME_LONG;
+                    state[i]=1;
+                }
+            }
+            else if(state[i]==1)
+            {
+                if(key_getstate(i)==KEY_RELEASE)
+                {
+                    key_flag[i]|=KEY_SIGNED;
+                    state[i]=0;
+                }
+                
+                if(time_cnt[i]==0)
+                {
+                    key_flag[i]|=KEY_LONG;
+                    state[i]=2;
+                }
+            }
+            else if(state[i]==2)
+            {
+                if(key_getstate(i)==KEY_RELEASE)
+                {
+                    state[i]==0;
+                }
+            }
         }
-        if (cur_key1_physical == LOW && last_key1_physical == HIGH)
-        {
-            key1_state = !key1_state; // 状态取反（0变1，1变0）
-        }
-        last_key1_physical = cur_key1_physical; // 更新物理状态
+        
+
     }
-}
-
-/**
- * @brief 获取 KEY1 (锁死按键) 的状态
- */
-uint8_t get_key1_state(void)
-{
-    return key1_state;
-}
-
-/**
- * @brief 获取 KEY2 (回弹按键) 的状态
- */
-uint8_t get_key2_state(void)
-{
-    return key2_state;
 }
 
 #endif
