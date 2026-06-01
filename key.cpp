@@ -95,7 +95,7 @@ void key_scan(void)
             
             if(state[i]==0)
             {
-                if(key_getstate(i)==KEY_PRESS)
+                if(cur_state[i]==KEY_PRESS)
                 {
                     time_cnt[i]=KEY_TIME_LONG;
                     state[i]=1;
@@ -103,7 +103,7 @@ void key_scan(void)
             }
             else if(state[i]==1)
             {
-                if(key_getstate(i)==KEY_RELEASE)
+                if(cur_state[i]==KEY_RELEASE)
                 {
                     key_flag[i]|=KEY_SIGNED;
                     state[i]=0;
@@ -116,7 +116,7 @@ void key_scan(void)
             }
             else if(state[i]==2)
             {
-                if(key_getstate(i)==KEY_RELEASE)
+                if(cur_state[i]==KEY_RELEASE)
                 {
                     state[i]=0;
                 }

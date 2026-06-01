@@ -27,7 +27,7 @@ unsigned long timer_key_logic = 0;
 unsigned long timer_oled_ui   = 0;
 unsigned long timer_ldr = 0; 
 unsigned long timer_sensor= 0;
-
+volatile bool oled_need_refresh = false;
 // ==================== 核心功能函数声明 ====================
 void handle_hardware_logic(void);
 void handle_auto_control(void);
@@ -71,13 +71,13 @@ void loop() {
     }
 
     // ----------------------------------------------------
-    // 核心任务 3:光敏采集与光控响应（每 1000ms 调度一次）
+    // 核心任务 3:光敏采集与光控响应（每 50ms 调度一次）
     // ----------------------------------------------------
-    if (current_time - timer_ldr >= 1000) {
+    if (current_time - timer_ldr >= 50) {
         timer_ldr = current_time;
         
         if (sys_power_on) {
-            // 光敏电阻 ADC 读取极快，1000ms 频率让手遮挡时立刻能做出硬件响应
+            // 光敏电阻 ADC 读取极快，50ms 频率让手遮挡时立刻能做出硬件响应
             gl_current_lux = ldr_get_lux(); 
             
             if (is_auto_mode) {
@@ -103,10 +103,11 @@ void loop() {
     }
 
     // ----------------------------------------------------
-    // 核心任务 4:OLED 屏幕数据异步刷新（每 3000ms 调度一次）
+    // 核心任务 4:OLED 屏幕数据异步刷新（每 300ms 调度一次）
     // ----------------------------------------------------
-    if (current_time - timer_oled_ui >= 3000) {
+    if ((current_time - timer_oled_ui >= 3000)|| oled_need_refresh) {
         timer_oled_ui = current_time;
+        oled_need_refresh = false;
         
         oled_ui_refresh(
             sys_power_on, 
@@ -133,6 +134,8 @@ void handle_hardware_logic(void) {
         if (!sys_power_on) {
             sys_power_on = true;
             is_auto_mode = true; // 开启时默认进入自动模式
+
+            oled_need_refresh = true;
             Serial.println(">> [总闸]: 开启！切回默认自动模式。");
         }
     } else {
@@ -142,6 +145,8 @@ void handle_hardware_logic(void) {
             set_led_status(RELAY_OFF);
             set_fun_status(RELAY_OFF);
             manual_state = 0;
+
+            oled_need_refresh = true;
             Serial.println(">> [总闸]: 关闭！所有功能切断，继电器归 00。");
         }
         return; // 总闸关闭状态下，不执行后续任何操作
@@ -151,6 +156,8 @@ void handle_hardware_logic(void) {
     // 长按 KEY2:切换 自动/手动 模式
     if (key_check(1, KEY_LONG)) {
         is_auto_mode = !is_auto_mode;
+        oled_need_refresh = true;
+
         Serial.print(">> [KEY2长按]: 切换模式为 -> ");
         Serial.println(is_auto_mode ? "【自动模式】" : "【手动模式】");
     }
@@ -160,6 +167,8 @@ void handle_hardware_logic(void) {
         // 短按 KEY2:在 00, 01, 10, 11 之间循环
         if (key_check(1, KEY_SIGNED)) {
             manual_state = (manual_state + 1) % 4;
+            oled_need_refresh = true;
+            
             Serial.print(">> [KEY2短按]: 手动状态切换 -> ");
             Serial.println(manual_state, BIN);
         }
@@ -171,12 +180,13 @@ void handle_hardware_logic(void) {
 }
 
 /**
- * @brief 【高频】自动模式控制逻辑：灯光控制
+ * @brief 自动模式控制逻辑：灯光控制
  */
 void handle_ldr_auto_control(void) {
     bool next_state = (gl_current_lux < light_threshold) ? RELAY_ON : RELAY_OFF;
     if (get_led_status() != next_state) {
         set_led_status(next_state);
+        oled_need_refresh = true;
         report_device_status(); // 仅在状态改变时上报，防闪烁刷屏
     }
 }
@@ -188,6 +198,7 @@ void handle_sensor_auto_control(void) {
     bool next_state = (gl_current_temp > temp_threshold) ? RELAY_ON : RELAY_OFF;
     if (get_fun_status() != next_state) {
         set_fun_status(next_state);
+        oled_need_refresh = true;
         report_device_status();
     }
 }
