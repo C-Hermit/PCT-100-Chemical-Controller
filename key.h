@@ -14,7 +14,7 @@
 #define KEY_SIGNED  0x02     //按键单击
 #define KEY_LONG   0x04     //按键长按时
 
-#define KEY_TIME_LONG (2000/20)
+#define KEY_TIME_LONG (1000/20)
 // 初始化按键
 void key_init(void);
 // 按键检查

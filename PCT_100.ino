@@ -160,6 +160,7 @@ void handle_hardware_logic(void) {
 
         Serial.print(">> [KEY2长按]: 切换模式为 -> ");
         Serial.println(is_auto_mode ? "【自动模式】" : "【手动模式】");
+        return;
     }
 
     // 处于手动状态时
