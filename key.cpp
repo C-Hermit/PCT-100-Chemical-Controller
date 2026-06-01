@@ -108,8 +108,7 @@ void key_scan(void)
                     key_flag[i]|=KEY_SIGNED;
                     state[i]=0;
                 }
-                
-                if(time_cnt[i]==0)
+                else if(time_cnt[i]==0)
                 {
                     key_flag[i]|=KEY_LONG;
                     state[i]=2;

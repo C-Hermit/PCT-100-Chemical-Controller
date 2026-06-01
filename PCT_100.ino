@@ -7,19 +7,26 @@
 #include "ldr.h"
 #include "ds18b20_drv.h"
 #include "mqtt_client_drv.h"
+#include "oled_ui.h"
 
 // ==================== 业务状态全局变量 ====================
-bool sys_power_on = false;     // 系统总闸状态：true-开启，false-关闭
-bool is_auto_mode = true;      // 模式：true-自动，false-手动
+bool sys_power_on = false;     // 系统总闸状态:true-开启,false-关闭
+bool is_auto_mode = true;      // 模式:true-自动,false-手动
 uint8_t manual_state = 0;      // 手动模式下的 4 种状态 (0~3 对应 00, 01, 10, 11)
 
-// 阈值默认值（根据图片初始化）
-float temp_threshold = 40.0;   // 温度高值阈值
-unsigned int light_threshold = 5000; // 光照阈值
+// 阈值默认值
+float temp_threshold = 30.0;   // 温度高值阈值
+unsigned int light_threshold = 300; // 光照阈值
 
-// 定时数据上报变量
-unsigned long last_report_time = 0;
-const unsigned long report_interval = 5000; // 默认每 5 秒自动上报一次状态
+// 数据缓存变量
+float gl_current_temp = 25.0;       // 温度全局缓存
+unsigned int gl_current_lux = 500; // 光照全局缓存
+
+// ==================== 时间片内核变量 ====================
+unsigned long timer_key_logic = 0;
+unsigned long timer_oled_ui   = 0;
+unsigned long timer_ldr = 0; 
+unsigned long timer_sensor= 0;
 
 // ==================== 核心功能函数声明 ====================
 void handle_hardware_logic(void);
@@ -36,7 +43,8 @@ void setup() {
     relay_init();
     ldr_init();
     ds18b20_init();
-    
+    oled_ui_init();
+
     // 初始化网络与MQTT
     mqtt_client_init();
     
@@ -46,14 +54,71 @@ void setup() {
 }
 
 void loop() {
-    // 1. 驱动内核轮询
+    // ----------------------------------------------------
+    // 核心任务 1:高频实时任务（无条件满速轮询，微秒级响应）
+    // ----------------------------------------------------
     key_scan();
     mqtt_client_loop();
 
-    // 2. 处理硬件按键与闸门逻辑
-    handle_hardware_logic();
-    
-    delay(10); // 稍微延时交出 CPU
+    unsigned long current_time = millis();
+
+    // ----------------------------------------------------
+    // 核心任务 2:按键约束与逻辑状态机（每 20ms 调度一次）
+    // ----------------------------------------------------
+    if (current_time - timer_key_logic >= 20) {
+        timer_key_logic = current_time;
+        handle_hardware_logic();
+    }
+
+    // ----------------------------------------------------
+    // 核心任务 3:光敏采集与光控响应（每 1000ms 调度一次）
+    // ----------------------------------------------------
+    if (current_time - timer_ldr >= 1000) {
+        timer_ldr = current_time;
+        
+        if (sys_power_on) {
+            // 光敏电阻 ADC 读取极快，1000ms 频率让手遮挡时立刻能做出硬件响应
+            gl_current_lux = ldr_get_lux(); 
+            
+            if (is_auto_mode) {
+                handle_ldr_auto_control(); // 毫秒级闭环灯光
+            }
+        }
+    }
+
+    // ----------------------------------------------------
+    // 核心任务 4:【低频】温度采集与风机控制（每 2000ms 调度一次）
+    // ----------------------------------------------------
+    if (current_time - timer_sensor >= 2000) {
+        timer_sensor = current_time;
+        
+        if (sys_power_on) {
+            // DS18B20 转换慢，保持 2 秒慢速读取，防止卡死单片机
+            gl_current_temp = ds18b20_get_temp(); 
+            
+            if (is_auto_mode) {
+                handle_sensor_auto_control(); // 闭环控制风机
+            }
+        }
+    }
+
+    // ----------------------------------------------------
+    // 核心任务 4:OLED 屏幕数据异步刷新（每 3000ms 调度一次）
+    // ----------------------------------------------------
+    if (current_time - timer_oled_ui >= 3000) {
+        timer_oled_ui = current_time;
+        
+        oled_ui_refresh(
+            sys_power_on, 
+            is_auto_mode, 
+            gl_current_lux, 
+            light_threshold, 
+            gl_current_temp, 
+            temp_threshold, 
+            (get_led_status() == RELAY_ON), 
+            (get_fun_status() == RELAY_ON)
+        );
+    }
 }
 
 // ==================== 业务逻辑细分实现 ====================
@@ -83,7 +148,7 @@ void handle_hardware_logic(void) {
     }
 
     // ---- KEY2 模式切换与手动控制 ----
-    // 长按 KEY2：切换 自动/手动 模式
+    // 长按 KEY2:切换 自动/手动 模式
     if (key_check(1, KEY_LONG)) {
         is_auto_mode = !is_auto_mode;
         Serial.print(">> [KEY2长按]: 切换模式为 -> ");
@@ -92,7 +157,7 @@ void handle_hardware_logic(void) {
 
     // 处于手动状态时
     if (!is_auto_mode) {
-        // 短按 KEY2：在 00, 01, 10, 11 之间循环
+        // 短按 KEY2:在 00, 01, 10, 11 之间循环
         if (key_check(1, KEY_SIGNED)) {
             manual_state = (manual_state + 1) % 4;
             Serial.print(">> [KEY2短按]: 手动状态切换 -> ");
@@ -103,41 +168,27 @@ void handle_hardware_logic(void) {
         set_led_status((manual_state & 0x02) ? RELAY_ON : RELAY_OFF); // 6号引脚
         set_fun_status((manual_state & 0x01) ? RELAY_ON : RELAY_OFF); // 7号引脚
     } 
-    // 处于自动状态时
-    else {
-        static unsigned long last_sensor_time = 0;
-        if (millis() < last_sensor_time) last_sensor_time = millis();
-        
-        if (millis() - last_sensor_time >= 1000) { // ⏳ 每 1000ms 才允许读一次传感器
-            last_sensor_time = millis();
-            // 只有时间到了，才在自动模式下触发传感器读取
-            handle_auto_control(); 
-        }
+}
+
+/**
+ * @brief 【高频】自动模式控制逻辑：灯光控制
+ */
+void handle_ldr_auto_control(void) {
+    bool next_state = (gl_current_lux < light_threshold) ? RELAY_ON : RELAY_OFF;
+    if (get_led_status() != next_state) {
+        set_led_status(next_state);
+        report_device_status(); // 仅在状态改变时上报，防闪烁刷屏
     }
 }
 
 /**
- * @brief 自动模式控制逻辑
+ * @brief 自动模式控制逻辑：风机控制
  */
-void handle_auto_control(void) {
-    // 读取传感器数据
-    unsigned int current_lux = ldr_get_lux();
-    float current_temp = ds18b20_get_temp();
-
-    // 1. 光敏控制灯光 (继电器6)
-    // 低于阈值开灯，高于/等于阈值关灯
-    if (current_lux < light_threshold) {
-        set_led_status(RELAY_ON);
-    } else {
-        set_led_status(RELAY_OFF);
-    }
-
-    // 2. 温度控制风扇 (继电器7)
-    // 高于阈值开风扇，低于/等于阈值关风扇
-    if (current_temp > temp_threshold) {
-        set_fun_status(RELAY_ON);
-    } else {
-        set_fun_status(RELAY_OFF);
+void handle_sensor_auto_control(void) {
+    bool next_state = (gl_current_temp > temp_threshold) ? RELAY_ON : RELAY_OFF;
+    if (get_fun_status() != next_state) {
+        set_fun_status(next_state);
+        report_device_status();
     }
 }
 
@@ -147,9 +198,8 @@ void handle_auto_control(void) {
 void report_device_status(void) {
     StaticJsonDocument<256> doc;
 
-    // 填充 JSON 数据
-    doc["temperature"] = ds18b20_get_temp();
-    doc["light"] = ldr_get_lux();
+    doc["temperature"] = gl_current_temp;
+    doc["light"] = gl_current_lux;
     doc["mode"] = is_auto_mode ? "auto" : "manual";
     doc["key1_lock"] = sys_power_on;
     doc["relay3"] = (get_led_status() == RELAY_ON);
@@ -157,7 +207,6 @@ void report_device_status(void) {
     doc["temp_threshold"] = temp_threshold;
     doc["light_threshold"] = light_threshold;
 
-    // 序列化为字符串并通过 MQTT 发布
     char output[256];
     serializeJson(doc, output);
     mqtt_client_publish(output);
