@@ -3,6 +3,8 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 
+#include "wifi_drv.h" 
+
 static WiFiClient espClient;
 static PubSubClient client(espClient);
 
@@ -28,54 +30,42 @@ static void mqtt_callback(char* topic, byte* payload, unsigned int length) {
         }
     }
 }
-
-// 内部私有函数：处理断线重连（带用户名密码验证）
+// 内部私有：断线带密重连机制
 static void mqtt_reconnect() {
-    while (!client.connected()) {
-        Serial.print("正在尝试连接有密 MQTT 服务器...");
-        
-        // 随机生成一个唯一 ClientID
-        String clientId = "ESP32C3-" + String(random(0, 0xffff), HEX);
-        
-        // ✨ 核心修改点：连接时传入用户名和密码
-        // 判定逻辑：如果连用户名都没有设置(为空)，则尝试匿名连接，否则带密连接
-        bool connect_status = false;
-        if (strlen(MQTT_USER) > 0) {
-            connect_status = client.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD);
-        } else {
-            connect_status = client.connect(clientId.c_str());
-        }
+    // 核心防御：如果底层 WiFi 还没连上，绝对不去尝试连接 MQTT，防止内核产生硬死锁
+    if (!wifi_drv_is_connected()) {
+        return;
+    }
 
-        if (connect_status) {
-            Serial.println("认证成功，已连接!");
-            // 连接成功后，重新订阅控制主题
-            client.subscribe(TOPIC_SUBSCRIBE);
-        } else {
-            Serial.print("认证/连接失败, 状态码=");
-            Serial.print(client.state());
-            Serial.println(" 5秒后重试...");
-            delay(5000);
-        }
+    static unsigned long last_reconnect_time = 0;
+    // 限制重连频率：每 5 秒最多尝试连接一次，决不无限制死循环卡死 main loop
+    if (millis() - last_reconnect_time < 5000) {
+        return;
+    }
+    last_reconnect_time = millis();
+
+    Serial.print(">> [MQTT]: 正在尝试连接有密 MQTT 服务器...");
+    String clientId = "ESP32C3-" + String(random(0, 0xffff), HEX);
+    
+    bool connect_status = false;
+    if (strlen(MQTT_USER) > 0) {
+        connect_status = client.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD);
+    } else {
+        connect_status = client.connect(clientId.c_str());
+    }
+
+    if (connect_status) {
+        Serial.println(" 认证成功，已连接!");
+        client.subscribe(TOPIC_SUBSCRIBE);
+    } else {
+        Serial.print(" 认证失败, 错误状态码码=");
+        Serial.println(client.state());
     }
 }
-
 void mqtt_client_init(void) {
-    // 1. 连接 WiFi
-    Serial.println();
-    Serial.print("正在连接 WiFi: ");
-    Serial.println(WIFI_SSID);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nWiFi 连接成功！");
-
-    // 2. 配置 MQTT 服务器及回调
+    // 仅配置服务器地址和端口，真正的连接交由 loop 中的逻辑处理
     client.setServer(MQTT_SERVER, MQTT_PORT);
 }
-
 void mqtt_client_loop(void) {
     if (!client.connected()) {
         mqtt_reconnect();
@@ -93,4 +83,9 @@ bool mqtt_client_publish(const char* payload) {
 void mqtt_client_set_callback(void (*callback)(char*, byte*, unsigned int)) {
     client.setCallback(callback); // 直接把 PubSubClient 的回调指向传进来的函数
 }
+
+
+
+
+
 

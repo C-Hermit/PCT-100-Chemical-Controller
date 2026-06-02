@@ -6,6 +6,7 @@
 #include "relay.h"
 #include "ldr.h"
 #include "ds18b20_drv.h"
+#include "wifi_drv.h"
 #include "mqtt_client_drv.h"
 #include "oled_ui.h"
 
@@ -21,7 +22,10 @@ unsigned int light_threshold = 300; // 光照阈值
 // 数据缓存变量
 float gl_current_temp = 25.0;       // 温度全局缓存
 unsigned int gl_current_lux = 500; // 光照全局缓存
-
+// WiFi 信息
+String input_ssid = "";
+String input_pwd  = "";
+bool wifi_configured = false;
 // ==================== 时间片内核变量 ====================
 unsigned long timer_key_logic = 0;
 unsigned long timer_oled_ui   = 0;
@@ -33,7 +37,7 @@ void handle_hardware_logic(void);
 void handle_auto_control(void);
 void report_device_status(void);
 void mqtt_callback_handler(char* topic, byte* payload, unsigned int length);
-
+void handle_serial_config(void);
 // ==================== Arduino 核心接口 ====================
 void setup() {
     Serial.begin(115200);
@@ -47,18 +51,31 @@ void setup() {
 
     // 初始化网络与MQTT
     mqtt_client_init();
-    
     mqtt_client_set_callback(mqtt_callback_handler);
-
+    
+    if (wifi_drv_auto_connect(input_ssid, input_pwd)) {
+        wifi_configured = true; // 如果闪存有数据，直接激活后台 loop 维护任务
+    } else {
+        Serial.println("\n>> 请通过串口输入 WiFi 信息，格式为: SSID,PASSWORD (注意中间有逗号)");
+    }
     Serial.println(">> 系统初始化完成，等待总闸 KEY1 闭合...");
 }
 
 void loop() {
     // ----------------------------------------------------
+    // 网络层任务：高频非阻塞轮询
+    // ----------------------------------------------------
+    handle_serial_config();
+
+    if (wifi_configured) {
+        wifi_drv_loop(input_ssid.c_str(), input_pwd.c_str());
+        mqtt_client_loop();
+    }
+    
+    // ----------------------------------------------------
     // 核心任务 1:高频实时任务（无条件满速轮询，微秒级响应）
     // ----------------------------------------------------
     key_scan();
-    mqtt_client_loop();
 
     unsigned long current_time = millis();
 
@@ -87,7 +104,7 @@ void loop() {
     }
 
     // ----------------------------------------------------
-    // 核心任务 4:【低频】温度采集与风机控制（每 2000ms 调度一次）
+    // 核心任务 4:温度采集与风机控制（每 2000ms 调度一次）
     // ----------------------------------------------------
     if (current_time - timer_sensor >= 2000) {
         timer_sensor = current_time;
@@ -201,6 +218,31 @@ void handle_sensor_auto_control(void) {
         set_fun_status(next_state);
         oled_need_refresh = true;
         report_device_status();
+    }
+}
+
+/**
+ * @brief 串口解析函数：支持动态输入 "SSID,PASSWORD" 换网
+ */
+void handle_serial_config(void) {
+    if (Serial.available() > 0) {
+        String input_str = Serial.readStringUntil('\n');
+        input_str.trim(); 
+
+        int comma_index = input_str.indexOf(',');
+        if (comma_index != -1) {
+            input_ssid = input_str.substring(0, comma_index);
+            input_pwd  = input_str.substring(comma_index + 1);
+
+            Serial.println(">> 收到串口网络配置!");
+            Serial.printf(">> [SSID]: %s \n", input_ssid.c_str());
+            
+            // 驱动独立 WiFi 库发起非阻塞连接
+            wifi_drv_init(input_ssid.c_str(), input_pwd.c_str());
+            wifi_configured = true;
+        } else {
+            Serial.println(">> [错误]: 格式不正确，请输入: SSID,PASSWORD");
+        }
     }
 }
 

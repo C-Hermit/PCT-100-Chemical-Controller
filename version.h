@@ -1,7 +1,7 @@
 #ifndef __VERSION_H
 #define __VERSION_H
 
-#define VERSION "V1.0"
+#define VERSION "V1.5"
 
 #define DEVICE_ID "PCT_100_013"
 
