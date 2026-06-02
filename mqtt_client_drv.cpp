@@ -1,5 +1,4 @@
 #include "mqtt_client_drv.h"
-#include "relay.h"  // 联动你的继电器驱动
 #include <WiFi.h>
 #include <PubSubClient.h>
 
@@ -8,28 +7,6 @@
 static WiFiClient espClient;
 static PubSubClient client(espClient);
 
-// 内部私有函数：处理收到的 MQTT 消息（下发控制）
-static void mqtt_callback(char* topic, byte* payload, unsigned int length) {
-    String message = "";
-    for (unsigned int i = 0; i < length; i++) {
-        message += (char)payload[i];
-    }
-    Serial.print("[MQTT Recv] Topic: ");
-    Serial.print(topic);
-    Serial.print(" | Payload: ");
-    Serial.println(message);
-
-    // 联动继电器逻辑
-    if (String(topic) == TOPIC_SUBSCRIBE) {
-        if (message == "1") {
-            // relay_on(); // 调用你 relay 驱动里的函数
-            Serial.println("Action -> 开启继电器");
-        } else if (message == "0") {
-            // relay_off(); 
-            Serial.println("Action -> 关闭继电器");
-        }
-    }
-}
 // 内部私有：断线带密重连机制
 static void mqtt_reconnect() {
     // 核心防御：如果底层 WiFi 还没连上，绝对不去尝试连接 MQTT，防止内核产生硬死锁

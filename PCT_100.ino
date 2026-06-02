@@ -30,13 +30,27 @@ SystemState sys = {
     .light_th    = 300,
 };
 
-// OLED 任务 ID，供 controller / mqtt_handler 等模块唤醒
+// 任务 ID，供其他模块唤醒
 int oled_task_id;
 
 // ==================== 定时任务包装器 ====================
 static void task_key_logic(void)  { ctrl_key_logic(); }
 static void task_ldr_sense(void)  { ctrl_auto_light(); }
 static void task_temp_sense(void) { ctrl_auto_fan(); }
+
+static void task_ws2812_indicator(void) {
+    static bool toggle = false;
+    if (wifi_drv_is_connected()) {
+        ws2812_drv_set_color(0, 0, 40, 0);     // 绿色常亮
+    } else {
+        toggle = !toggle;
+        if (toggle) {
+            ws2812_drv_set_color(0, 0, 0, 60); // 蓝色亮
+        } else {
+            ws2812_drv_clear();                  // 灭
+        }
+    }
+}
 static void task_oled_refresh(void) {
     oled_ui_refresh(
         sys.power_on,
@@ -75,6 +89,7 @@ void setup() {
     sched_add(task_ldr_sense,    50);
     sched_add(task_temp_sense,   2000);
     oled_task_id = sched_add(task_oled_refresh, 3000);
+    sched_add(task_ws2812_indicator, 500);
 
     Serial.println(">> 系统初始化完成，等待总闸 KEY1 闭合...");
 }
@@ -83,7 +98,6 @@ void loop() {
     // 高频轮询
     serial_cmd_loop();
     wifi_drv_loop();
-    ws2812_drv_loop();
     if (wifi_drv_is_connected()) {
         mqtt_client_loop();
     }

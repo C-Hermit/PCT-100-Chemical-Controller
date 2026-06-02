@@ -16,7 +16,4 @@ void ws2812_drv_set_color(uint16_t index, uint8_t r, uint8_t g, uint8_t b);
 // 关闭所有灯珠
 void ws2812_drv_clear(void);
 
-// 挂载在主循环中的非阻塞状态机
-void ws2812_drv_loop(void);
-
 #endif // __WS2812_DRV_H__
