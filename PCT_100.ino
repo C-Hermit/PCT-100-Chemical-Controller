@@ -10,6 +10,8 @@
 #include "mqtt_client_drv.h"
 #include "oled_ui.h"
 #include "serial_ctrl_drv.h"
+#include "ws2812_drv.h"
+
 
 // ==================== 业务状态全局变量 ====================
 bool sys_power_on = false;     // 系统总闸状态:true-开启,false-关闭
@@ -47,6 +49,7 @@ void setup() {
     ds18b20_init();
     oled_ui_init();
     wifi_drv_init();
+    ws2812_drv_init();
 
     // 初始化MQTT
     mqtt_client_init();
@@ -63,6 +66,7 @@ void loop() {
 
     // 驱动库自己管内部状态，main.cpp 只需要机械性地调用 loop
     wifi_drv_loop();
+    ws2812_drv_loop();
 
     // 只要硬件网络层是通的，就维持 MQTT 客户端底层轮询
     if (wifi_drv_is_connected()) {
