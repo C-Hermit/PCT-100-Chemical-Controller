@@ -1,23 +1,25 @@
 #include <Arduino.h>
 
-// 底层驱动
+// ==================== 驱动层：硬件抽象 ====================
 #include "key.h"
 #include "relay.h"
 #include "ldr.h"
 #include "ds18b20_drv.h"
-#include "wifi_drv.h"
-#include "mqtt_client_drv.h"
 #include "oled_ui.h"
 #include "ws2812_drv.h"
 
-// 基础设施
+// ==================== 传输层：通信协议栈 ====================
+#include "wifi_drv.h"
+#include "mqtt_client_drv.h"
+
+// ==================== 业务层：领域逻辑 ====================
+#include "controller.h"
+#include "mqtt_handler.h"
+
+// ==================== 编排层：调度 / 命令 / 状态 ====================
 #include "scheduler.h"
 #include "serial_cmd.h"
 #include "device.h"
-
-// 业务模块
-#include "controller.h"
-#include "mqtt_handler.h"
 
 // ==================== 全局状态实例 ====================
 SystemState sys = {
@@ -69,21 +71,23 @@ static void task_oled_refresh(void) {
 void setup() {
     Serial.begin(115200);
 
-    // 硬件初始化
+    // ── 驱动层初始化 ──
     key_init();
     relay_init();
     ldr_init();
     ds18b20_init();
     oled_ui_init();
-    wifi_drv_init();
     ws2812_drv_init();
-    ctrl_init();
 
-    // MQTT 传输层 + 协议层
+    // ── 传输层初始化 ──
+    wifi_drv_init();
     mqtt_client_init();
+
+    // ── 业务层初始化 ──
+    ctrl_init();
     mqtt_handler_init();
 
-    // 注册定时任务
+    // ── 编排层：注册定时任务 ──
     sched_init();
     sched_add(task_key_logic,    20);
     sched_add(task_ldr_sense,    50);
@@ -95,14 +99,16 @@ void setup() {
 }
 
 void loop() {
-    // 高频轮询
+    // ── 传输层轮询 ──
     serial_cmd_loop();
     wifi_drv_loop();
     if (wifi_drv_is_connected()) {
         mqtt_client_loop();
     }
+
+    // ── 驱动层轮询 ──
     key_scan();
 
-    // 定时调度
+    // ── 编排层：定时调度 ──
     sched_run();
 }
