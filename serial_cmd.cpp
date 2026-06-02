@@ -1,23 +1,9 @@
 #include "serial_cmd.h"
 #include "wifi_drv.h"
 #include "relay.h"
-#include "scheduler.h"
+#include "device.h"
+#include "controller.h"
 #include <WiFi.h>
-
-// 与 PCT_100.ino 共享业务状态与调度器
-extern struct SystemState {
-    bool power_on;
-    bool is_auto;
-    uint8_t manual_code;
-    float current_temp;
-    unsigned int current_lux;
-    float temp_th;
-    unsigned int light_th;
-    bool wifi_connected;
-} sys;
-
-extern int oled_task_id;
-extern void report_device_status(void);
 
 // ==================== 内部函数声明 ====================
 static void cmd_wifi_scan(void);
@@ -38,14 +24,13 @@ void serial_cmd_loop(void) {
     input.trim();
     if (input.length() == 0) return;
 
-    // 按首单词派发
     if (input.startsWith("wifi ")) {
         String sub = input.substring(5);
-        if (sub == "scan")            cmd_wifi_scan();
-        else if (sub == "list")       cmd_wifi_list();
-        else if (sub.startsWith("conn"))  cmd_wifi_conn(sub.substring(5));
-        else if (sub == "status")     cmd_wifi_status();
-        else if (sub == "forget")     cmd_wifi_forget();
+        if (sub == "scan")             cmd_wifi_scan();
+        else if (sub == "list")        cmd_wifi_list();
+        else if (sub.startsWith("conn")) cmd_wifi_conn(sub.substring(5));
+        else if (sub == "status")      cmd_wifi_status();
+        else if (sub == "forget")      cmd_wifi_forget();
         else Serial.println(">> wifi 命令: scan, list, conn <n> [pwd], status, forget");
     }
     else if (input.startsWith("set ")) {
@@ -84,9 +69,7 @@ static void cmd_wifi_list(void) {
     Serial.println("----------------------------------------------");
     for (int i = 0; i < n; i++) {
         Serial.printf("%-5d | %-24.24s | %-4d | %s\n",
-                      i + 1,
-                      results[i].ssid,
-                      results[i].rssi,
+                      i + 1, results[i].ssid, results[i].rssi,
                       results[i].encrypted ? "是" : "否");
     }
     Serial.println("----------------------------------------------");
@@ -100,13 +83,12 @@ static void cmd_wifi_conn(const String& args) {
         return;
     }
 
-    // 第一个空格前是编号，之后是密码（可选）
     int sp = args.indexOf(' ');
     String idx_str = (sp >= 0) ? args.substring(0, sp) : args;
     String pwd     = (sp >= 0) ? args.substring(sp + 1) : "";
     pwd.trim();
 
-    int idx = idx_str.toInt() - 1;  // 1-based → 0-based
+    int idx = idx_str.toInt() - 1;
     if (idx < 0) {
         Serial.println(">> 编号无效。请先执行 'wifi list' 查看可用网络。");
         return;
@@ -158,38 +140,27 @@ static void cmd_set(const String& args) {
         return;
     }
 
-    bool changed = false;
-
     if (key == "temp") {
-        sys.temp_th = val.toFloat();
+        ctrl_set_temp_threshold(val.toFloat());
         Serial.printf(">> 温度阈值 -> %.1f °C\n", sys.temp_th);
-        changed = true;
     }
     else if (key == "light") {
-        sys.light_th = val.toInt();
+        ctrl_set_light_threshold(val.toInt());
         Serial.printf(">> 光照阈值 -> %u Lux\n", sys.light_th);
-        changed = true;
     }
     else if (key == "mode") {
         if (val == "auto") {
-            sys.is_auto = true;
+            ctrl_set_mode(true);
             Serial.println(">> 模式 -> 自动");
-            changed = true;
         } else if (val == "manual") {
-            sys.is_auto = false;
+            ctrl_set_mode(false);
             Serial.println(">> 模式 -> 手动");
-            changed = true;
         } else {
             Serial.println(">> 模式值无效 (auto/manual)");
         }
     }
     else {
         Serial.printf(">> 未知参数: %s (可用: temp, light, mode)\n", key.c_str());
-    }
-
-    if (changed) {
-        sched_wake(oled_task_id);
-        report_device_status();
     }
 }
 
