@@ -2,241 +2,123 @@
 #include <WiFi.h>
 #include <Preferences.h>
 
-// ==================== 🛠️ 异步配网状态枚举 ====================
-typedef enum {
-    WIFI_STATE_IDLE = 0,
-    WIFI_STATE_SCANNING,
-    WIFI_STATE_WAIT_CHOICE,
-    WIFI_STATE_WAIT_PWD
-} wifi_interact_state_t;
-
-// ==================== 驱动内部私有静态状态变量 ====================
+// ==================== 驱动内部私有静态状态 ====================
 static Preferences prefs;
 static String   _drv_ssid = "";
 static String   _drv_pwd  = "";
-static bool     _drv_configured = false;
 static volatile bool _drv_status_changed = false;
 
-// 异步状态机核心变量
-static wifi_interact_state_t _interact_state = WIFI_STATE_IDLE;
-static uint32_t _state_timeout_ms = 5000; // 默认阶段超时
-static uint32_t _state_start_time = 0;
-static int      _scanned_count = 0;
-
+// 非阻塞连接跟踪
+static bool     _connecting = false;
+static uint32_t _connect_start = 0;
+// 连接成功时是否将 _tmp_ssid/_tmp_pwd 写入 NVS
+static bool     _save_creds = false;
 static String   _tmp_ssid = "";
 static String   _tmp_pwd  = "";
 
-// ==================== 内部私有功能函数声明 ====================
+// 状态变化检测（断线重连后通知外部）
+static bool     _was_connected = false;
+
+// ==================== 内部函数声明 ====================
 static void wifi_drv_save_credentials(const char* ssid, const char* password);
-static void wifi_drv_start_async_scan(void);
-static void wifi_drv_init_connect(const char* ssid, const char* password);
-static void wifi_drv_handle_interact_fsm(void);
+static void wifi_drv_begin_connect(const char* ssid, const char* password);
+static void wifi_drv_poll_connecting(void);
+
+// ==================== 内部函数实现 ====================
 
 static void wifi_drv_save_credentials(const char* ssid, const char* password) {
     prefs.begin("wifi_space", false);
     prefs.putString("ssid", ssid);
     prefs.putString("pwd", password);
     prefs.end();
-    Serial.println(">> [WiFi NVS]: 新的 WiFi 凭据已固化到闪存中。");
+    _drv_ssid = ssid;
+    _drv_pwd  = password;
+    Serial.println(">> [WiFi NVS]: 凭据已保存到闪存。");
 }
 
-/**
- * @brief 开启异步 WiFi 扫描（完全不阻塞）
- */
-static void wifi_drv_start_async_scan(void) {
-    Serial.println("\n>> [WiFi]: 正在后台异步扫描附近无线网络...");
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    
-    // 第一个参数位 true 表示【异步扫描】，调用后立刻返回，不阻塞
-    WiFi.scanNetworks(true, false, false); 
-    _interact_state = WIFI_STATE_SCANNING;
-    _state_start_time = millis();
-}
-
-static void wifi_drv_init_connect(const char* ssid, const char* password) {
+static void wifi_drv_begin_connect(const char* ssid, const char* password) {
     if (ssid == NULL || strlen(ssid) == 0) return;
-    
-    Serial.printf("\n>> [WiFi]: 正在连接网络 -> %s\n", ssid);
+
+    Serial.printf("\n>> [WiFi]: 连接 %s ...\n", ssid);
     WiFi.disconnect(true);
     delay(50);
     WiFi.begin(ssid, password);
-    
-    // 此处由于在 init 或特定的断线状态触发，允许有限阻塞 3 秒快速尝试，或直接交由后台
-    int timeout = 0;
-    while (WiFi.status() != WL_CONNECTED && timeout < 6) { 
-        delay(500);
-        Serial.print(".");
-        timeout++;
-    }
-    
+
+    _connecting = true;
+    _connect_start = millis();
+}
+
+static void wifi_drv_poll_connecting(void) {
+    if (!_connecting) return;
+
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.printf("\n>> [WiFi]: 连接成功！IP: %s\n", WiFi.localIP().toString().c_str());
-        wifi_drv_save_credentials(ssid, password);
-        _drv_configured = true;
-        _drv_status_changed = true; 
-    } else {
-        Serial.println("\n>> [WiFi]: 首次连接未果，交由底层后台持续自动重连...");
-        _drv_configured = false;
+        _connecting = false;
+
+        if (_save_creds) {
+            wifi_drv_save_credentials(_tmp_ssid.c_str(), _tmp_pwd.c_str());
+            _save_creds = false;
+        }
+
+        Serial.printf(">> [WiFi]: 连接成功！IP: %s\n", WiFi.localIP().toString().c_str());
+        _drv_status_changed = true;
+        return;
+    }
+
+    // 15 秒超时
+    if (millis() - _connect_start >= 15000) {
+        _connecting = false;
+        Serial.println(">> [WiFi]: 连接超时(15s)。使用 'wifi scan' 重新扫描。");
     }
 }
 
-/**
- * @brief 🌟 核心：串口交互异步状态机（每次执行耗时接近 0 ms）
- */
-static void wifi_drv_handle_interact_fsm(void) {
-    switch (_interact_state) {
-        
-        case WIFI_STATE_IDLE:
-            break;
+// ==================== 对外接口 ====================
 
-        case WIFI_STATE_SCANNING: {
-            // 检查异步扫描是否完成
-            int16_t scan_result = WiFi.scanComplete();
-            if (scan_result == WIFI_SCAN_RUNNING) {
-                // 还在扫，直接退出，等下一轮 loop 检查
-                return; 
-            } else if (scan_result == WIFI_SCAN_FAILED || scan_result <= 0) {
-                Serial.println(">> [WiFi]: 异步扫描未找到网络，退出。");
-                WiFi.scanDelete();
-                _interact_state = WIFI_STATE_IDLE;
-            } else {
-                // 扫描成功，打印列表
-                _scanned_count = scan_result;
-                Serial.println(">> [WiFi]: 扫描完成！");
-                Serial.println("----------------------------------------------");
-                Serial.printf("%-5s | %-20s | %-4s | %s\n", "编号", "WiFi 名称 (SSID)", "信号", "加密");
-                Serial.println("----------------------------------------------");
-                for (int i = 0; i < _scanned_count; ++i) {
-                    Serial.printf("%-5d | %-20.20s | %-4d | %s\n", 
-                                  i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), 
-                                  (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "公开" : "加密");
-                }
-                Serial.println("----------------------------------------------");
-                Serial.printf(">> 请输入连接的编号（限时 %d 秒，无人输入自动跳过）：\n", _state_timeout_ms / 1000);
-                
-                while (Serial.available() > 0) Serial.read(); // 读清缓存
-                _interact_state = WIFI_STATE_WAIT_CHOICE;
-                _state_start_time = millis(); // 刷新阶段计时器
-            }
-            break;
-        }
-
-        case WIFI_STATE_WAIT_CHOICE: {
-            // 检查是否超时
-            if (millis() - _state_start_time >= _state_timeout_ms) {
-                Serial.println("\n>> [WiFi]: 输入编号超时，已自动跳过配网。");
-                WiFi.scanDelete();
-                _interact_state = WIFI_STATE_IDLE;
-                return;
-            }
-
-            // 非阻塞检查是否有输入
-            if (Serial.available() > 0) {
-                String choice_str = Serial.readStringUntil('\n');
-                choice_str.trim();
-                int choice = choice_str.toInt() - 1;
-
-                if (choice >= 0 && choice < _scanned_count) {
-                    _tmp_ssid = WiFi.SSID(choice);
-                    Serial.printf(">> 已选择网络: %s\n", _tmp_ssid.c_str());
-                    Serial.printf(">> 请输入该网络的密码（限时 %d 秒）：\n", _state_timeout_ms / 1000);
-                    
-                    _interact_state = WIFI_STATE_WAIT_PWD;
-                    _state_start_time = millis(); // 重新倒计时密码输入
-                } else {
-                    Serial.printf(">> [输入错误]: 编号不合法。重新拉起扫描...\n");
-                    WiFi.scanDelete();
-                    wifi_drv_start_async_scan();
-                }
-            }
-            break;
-        }
-
-        case WIFI_STATE_WAIT_PWD: {
-            if (millis() - _state_start_time >= _state_timeout_ms) {
-                Serial.println("\n>> [WiFi]: 输入密码超时，已自动跳过配网。");
-                WiFi.scanDelete();
-                _interact_state = WIFI_STATE_IDLE;
-                return;
-            }
-
-            if (Serial.available() > 0) {
-                _tmp_pwd = Serial.readStringUntil('\n');
-                _tmp_pwd.trim();
-                
-                WiFi.scanDelete(); // 释放内存
-                
-                _drv_ssid = _tmp_ssid;
-                _drv_pwd  = _tmp_pwd;
-                
-                _interact_state = WIFI_STATE_IDLE;
-                
-                // 触发连接
-                wifi_drv_init_connect(_drv_ssid.c_str(), _drv_pwd.c_str());
-            }
-            break;
-        }
-    }
-}
-
-static bool wifi_drv_auto_connect(void) {
+void wifi_drv_init(void) {
     prefs.begin("wifi_space", true);
     _drv_ssid = prefs.getString("ssid", "");
     _drv_pwd  = prefs.getString("pwd", "");
     prefs.end();
 
     if (_drv_ssid.length() > 0) {
-        Serial.println("\n>> [WiFi NVS]: 发现历史网络记录，正在尝试自动回连...");
-        wifi_drv_init_connect(_drv_ssid.c_str(), _drv_pwd.c_str());
-        return _drv_configured;
+        Serial.println(">> [WiFi NVS]: 发现历史凭据，异步回连中...");
+        wifi_drv_begin_connect(_drv_ssid.c_str(), _drv_pwd.c_str());
+    } else {
+        Serial.println(">> [WiFi]: 无凭据。输入 'wifi scan' 扫描网络。");
     }
-    return false;
-}
-
-// ==================== 🔓 对外公开接口实现 ====================
-
-void wifi_drv_init(void) {
-    if (wifi_drv_auto_connect()) {
-        return;
-    }
-    Serial.println(">> [WiFi]: 自动联网失败，拉起异步串口配网，不阻塞主时序。");
-    _state_timeout_ms = 5000; // 设定交互配网中各阶段超时为 5 秒
-    wifi_drv_start_async_scan(); 
 }
 
 void wifi_drv_loop(void) {
-    // 🌟 核心：不论何时，高频刷新串口配网状态机（无输入时耗时为 0 毫秒）
-    wifi_drv_handle_interact_fsm();
+    // 非阻塞等待连接完成
+    wifi_drv_poll_connecting();
 
-    static unsigned long last_wifi_check = 0;
-    static uint8_t disconnect_counter = 0;
-
+    // 跳过启动初期
     if (millis() < 2000) return;
 
-    if (millis() - last_wifi_check >= 5000) {
-        last_wifi_check = millis();
-        
-        if (WiFi.status() == WL_CONNECTED) {
-            disconnect_counter = 0;
-            return;
-        }
+    static unsigned long last_check = 0;
+    static uint8_t disconnect_count = 0;
 
-        // 只有当前没有在进行串口交互配网时，才进行断线累计判定
-        if (_drv_ssid.length() > 0 && _interact_state == WIFI_STATE_IDLE) {
-            disconnect_counter++;
-            Serial.printf(">> [WiFi]: 断开！检测到未联网状态持续累计 %d 次...\n", disconnect_counter);
-            
-            if (disconnect_counter >= 3) {
-                Serial.println("\n>> [WiFi]: 累计 15 秒未连通，触发异步换网流...");
-                disconnect_counter = 0; 
-                WiFi.disconnect(false);
-                
-                _state_timeout_ms = 5000; // 运行时断开只给 5 秒看控制台的机会
-                wifi_drv_start_async_scan(); // 优雅拉起异步扫描，loop 不受任何阻碍
-            } else {
-                Serial.println(">> [WiFi]: 底层正在后台自动重连中，静默等待...");
-            }
+    if (millis() - last_check < 5000) return;
+    last_check = millis();
+
+    bool now_connected = (WiFi.status() == WL_CONNECTED);
+
+    // 状态从断连→连接：通知 OLED 等外部模块
+    if (now_connected && !_was_connected) {
+        _drv_status_changed = true;
+        disconnect_count = 0;
+    }
+    _was_connected = now_connected;
+
+    if (now_connected) return;
+
+    // ---- 断线恢复 ----
+    disconnect_count++;
+    if (disconnect_count >= 3) {
+        disconnect_count = 0;
+        Serial.println(">> [WiFi]: 断线 15s，尝试恢复...");
+
+        if (_drv_ssid.length() > 0 && !_connecting) {
+            wifi_drv_begin_connect(_drv_ssid.c_str(), _drv_pwd.c_str());
         }
     }
 }
@@ -254,8 +136,71 @@ String wifi_drv_get_local_ip(void) {
 
 bool wifi_drv_check_renotify(void) {
     if (_drv_status_changed) {
-        _drv_status_changed = false; 
+        _drv_status_changed = false;
         return true;
     }
     return false;
+}
+
+// ==================== 串口命令调用接口 ====================
+
+void wifi_drv_scan_start(void) {
+    // 清除上次扫描结果
+    int prev = WiFi.scanComplete();
+    if (prev > 0) WiFi.scanDelete();
+
+    _connecting = false;  // 取消待完成的连接
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    WiFi.scanNetworks(true, false, false);
+    Serial.println(">> [WiFi]: 扫描中...（使用 'wifi list' 查看结果）");
+}
+
+int wifi_drv_scan_fetch(wifi_scan_entry_t* buf, int max) {
+    int n = WiFi.scanComplete();
+    if (n <= 0) return 0;
+    if (n > max) n = max;
+
+    // 按 RSSI 降序排列的索引数组
+    int idx[n];
+    for (int i = 0; i < n; i++) idx[i] = i;
+
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - 1 - i; j++) {
+            if (WiFi.RSSI(idx[j]) < WiFi.RSSI(idx[j + 1])) {
+                int t = idx[j]; idx[j] = idx[j + 1]; idx[j + 1] = t;
+            }
+        }
+    }
+
+    for (int i = 0; i < n; i++) {
+        snprintf(buf[i].ssid, sizeof(buf[i].ssid), "%s", WiFi.SSID(idx[i]).c_str());
+        buf[i].rssi = WiFi.RSSI(idx[i]);
+        buf[i].encrypted = (WiFi.encryptionType(idx[i]) != WIFI_AUTH_OPEN);
+    }
+
+    return n;  // 不删结果，下次 scan_start 或 clear 时自动清理
+}
+
+void wifi_drv_connect(const char* ssid, const char* password) {
+    if (ssid == NULL || strlen(ssid) == 0) return;
+
+    _tmp_ssid = ssid;
+    _tmp_pwd  = password ? password : "";
+    _save_creds = true;
+
+    wifi_drv_begin_connect(ssid, _tmp_pwd.c_str());
+}
+
+void wifi_drv_clear_credentials(void) {
+    prefs.begin("wifi_space", false);
+    prefs.remove("ssid");
+    prefs.remove("pwd");
+    prefs.end();
+    _drv_ssid = "";
+    _drv_pwd  = "";
+    _connecting = false;
+    WiFi.disconnect(true);
+    WiFi.scanDelete();
+    Serial.println(">> [WiFi NVS]: 凭据已清除。");
 }

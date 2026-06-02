@@ -9,7 +9,7 @@
 #include "wifi_drv.h"
 #include "mqtt_client_drv.h"
 #include "oled_ui.h"
-#include "serial_ctrl_drv.h"
+#include "serial_cmd.h"
 #include "ws2812_drv.h"
 
 
@@ -50,7 +50,6 @@ void handle_hardware_logic(void);
 void handle_auto_control(void);
 void report_device_status(void);
 void mqtt_callback_handler(char* topic, byte* payload, unsigned int length);
-void handle_serial_config(void);
 // ==================== Arduino 核心接口 ====================
 void setup() {
     Serial.begin(115200);
@@ -75,7 +74,8 @@ void loop() {
     // ----------------------------------------------------
     // 网络层任务：高频非阻塞轮询
     // ----------------------------------------------------
-    // serial_ctrl_loop();
+    // 串口命令处理
+    serial_cmd_loop();
 
     // 驱动库自己管内部状态，main.cpp 只需要机械性地调用 loop
     wifi_drv_loop();
