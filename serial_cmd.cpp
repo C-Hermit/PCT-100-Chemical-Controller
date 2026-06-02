@@ -1,10 +1,10 @@
 #include "serial_cmd.h"
 #include "wifi_drv.h"
 #include "relay.h"
+#include "scheduler.h"
 #include <WiFi.h>
 
-// ==================== 外部状态引用 ====================
-// 与 PCT_100.ino 共享业务状态
+// 与 PCT_100.ino 共享业务状态与调度器
 extern struct SystemState {
     bool power_on;
     bool is_auto;
@@ -16,7 +16,7 @@ extern struct SystemState {
     bool wifi_connected;
 } sys;
 
-extern volatile bool oled_need_refresh;
+extern int oled_task_id;
 extern void report_device_status(void);
 
 // ==================== 内部函数声明 ====================
@@ -188,7 +188,7 @@ static void cmd_set(const String& args) {
     }
 
     if (changed) {
-        oled_need_refresh = true;
+        sched_wake(oled_task_id);
         report_device_status();
     }
 }
