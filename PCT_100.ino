@@ -14,18 +14,31 @@
 
 
 // ==================== 业务状态全局变量 ====================
-bool sys_power_on = false;     // 系统总闸状态:true-开启,false-关闭
-bool is_auto_mode = true;      // 模式:true-自动,false-手动
-uint8_t manual_state = 0;      // 手动模式下的 4 种状态 (0~3 对应 00, 01, 10, 11)
+struct SystemState {
+    bool power_on;             // 系统总闸状态: true-开启, false-关闭
+    bool is_auto;              // 模式: true-自动, false-手动
+    uint8_t manual_code;       // 手动模式下的状态码 (00~11)
+    
+    float current_temp;        // 温度全局缓存
+    unsigned int current_lux;  // 光照全局缓存
+    
+    float temp_th;             // 温度高值阈值
+    unsigned int light_th;     // 光照阈值
 
-// 阈值默认值
-float temp_threshold = 30.0;   // 温度高值阈值
-unsigned int light_threshold = 300; // 光照阈值
+    bool wifi_connected;       // 🌟 新增：WiFi 连接状态 (true-已连接, false-未连接)
+};
 
-// 数据缓存变量
-float gl_current_temp = 25.0;       // 温度全局缓存
-unsigned int gl_current_lux = 500; // 光照全局缓存
-
+// 实例化全局状态并初始化
+SystemState sys = {
+    .power_on       = false,
+    .is_auto        = true,
+    .manual_code    = 0,
+    .current_temp   = 25.0,
+    .current_lux    = 500,
+    .temp_th        = 30.0,
+    .light_th       = 300,
+    .wifi_connected = false    // 🌟 默认未连接
+};
 // ==================== 时间片内核变量 ====================
 unsigned long timer_key_logic = 0;
 unsigned long timer_oled_ui   = 0;
@@ -94,11 +107,11 @@ void loop() {
     if (current_time - timer_ldr >= 50) {
         timer_ldr = current_time;
         
-        if (sys_power_on) {
+        if (sys.power_on) {
             // 光敏电阻 ADC 读取极快，50ms 频率让手遮挡时立刻能做出硬件响应
-            gl_current_lux = ldr_get_lux(); 
+            sys.current_lux = ldr_get_lux(); 
             
-            if (is_auto_mode) {
+            if (sys.is_auto) {
                 handle_ldr_auto_control(); // 毫秒级闭环灯光
             }
         }
@@ -110,11 +123,11 @@ void loop() {
     if (current_time - timer_sensor >= 2000) {
         timer_sensor = current_time;
         
-        if (sys_power_on) {
+        if (sys.power_on) {
             // DS18B20 转换慢，保持 2 秒慢速读取，防止卡死单片机
-            gl_current_temp = ds18b20_get_temp(); 
+            sys.current_temp = ds18b20_get_temp(); 
             
-            if (is_auto_mode) {
+            if (sys.is_auto) {
                 handle_sensor_auto_control(); // 闭环控制风机
             }
         }
@@ -128,12 +141,12 @@ void loop() {
         oled_need_refresh = false;
         
         oled_ui_refresh(
-            sys_power_on, 
-            is_auto_mode, 
-            gl_current_lux, 
-            light_threshold, 
-            gl_current_temp, 
-            temp_threshold, 
+            sys.power_on, 
+            sys.is_auto, 
+            sys.current_lux, 
+            sys.light_th, 
+            sys.current_temp, 
+            sys.temp_th, 
             (get_led_status() == RELAY_ON), 
             (get_fun_status() == RELAY_ON)
         );
@@ -149,21 +162,21 @@ void handle_hardware_logic(void) {
     // ---- KEY1 总闸状态判断 ----
     // 只要 KEY1 处于 HOLD 状态，总闸打开；否则关闭
     if (key_getstate(0) == KEY_HOLD) {
-        if (!sys_power_on) {
-            sys_power_on = true;
-            is_auto_mode = true; // 开启时默认进入自动模式
+        if (!sys.power_on) {
+            sys.power_on = true;
+            sys.is_auto = true; // 开启时默认进入自动模式
 
             oled_need_refresh = true;
             Serial.println(">> [总闸]: 开启！切回默认自动模式。");
             report_device_status();
         }
     } else {
-        if (sys_power_on) {
-            sys_power_on = false;
+        if (sys.power_on) {
+            sys.power_on = false;
             // 总闸关闭，强制关闭所有继电器 (模式归00)
             set_led_status(RELAY_OFF);
             set_fun_status(RELAY_OFF);
-            manual_state = 0;
+            sys.manual_code = 0;
 
             oled_need_refresh = true;
             Serial.println(">> [总闸]: 关闭！所有功能切断，继电器归 00。");
@@ -174,27 +187,27 @@ void handle_hardware_logic(void) {
     // ---- KEY2 模式切换与手动控制 ----
     // 长按 KEY2:切换 自动/手动 模式
     if (key_check(1, KEY_LONG)) {
-        is_auto_mode = !is_auto_mode;
+        sys.is_auto = !sys.is_auto;
         oled_need_refresh = true;
 
         Serial.print(">> [KEY2长按]: 切换模式为 -> ");
-        Serial.println(is_auto_mode ? "【自动模式】" : "【手动模式】");
+        Serial.println(sys.is_auto ? "【自动模式】" : "【手动模式】");
         report_device_status();
         return;
     }
 
     // 处于手动状态时
-    if (!is_auto_mode) {
+    if (!sys.is_auto) {
         // 短按 KEY2:在 00, 01, 10, 11 之间循环
         if (key_check(1, KEY_SIGNED)) {
-            manual_state = (manual_state + 1) % 4;
+            sys.manual_code = (sys.manual_code + 1) % 4;
             oled_need_refresh = true;
             
             Serial.print(">> [KEY2短按]: 手动状态切换 -> ");
-            Serial.println(manual_state, BIN);
+            Serial.println(sys.manual_code, BIN);
             // 根据状态码控制继电器 (低位控制风扇FUN_PIN，高位控制灯LED_PIN)
-            set_led_status((manual_state & 0x02) ? RELAY_ON : RELAY_OFF); // 6号引脚
-            set_fun_status((manual_state & 0x01) ? RELAY_ON : RELAY_OFF); // 7号引脚
+            set_led_status((sys.manual_code & 0x02) ? RELAY_ON : RELAY_OFF); // 6号引脚
+            set_fun_status((sys.manual_code & 0x01) ? RELAY_ON : RELAY_OFF); // 7号引脚
             report_device_status();
         }
     } 
@@ -204,7 +217,7 @@ void handle_hardware_logic(void) {
  * @brief 自动模式控制逻辑：灯光控制
  */
 void handle_ldr_auto_control(void) {
-    bool next_state = (gl_current_lux < light_threshold) ? RELAY_ON : RELAY_OFF;
+    bool next_state = (sys.current_lux < sys.light_th) ? RELAY_ON : RELAY_OFF;
     if (get_led_status() != next_state) {
         set_led_status(next_state);
         oled_need_refresh = true;
@@ -216,7 +229,7 @@ void handle_ldr_auto_control(void) {
  * @brief 自动模式控制逻辑：风机控制
  */
 void handle_sensor_auto_control(void) {
-    bool next_state = (gl_current_temp > temp_threshold) ? RELAY_ON : RELAY_OFF;
+    bool next_state = (sys.current_temp > sys.temp_th) ? RELAY_ON : RELAY_OFF;
     if (get_fun_status() != next_state) {
         set_fun_status(next_state);
         oled_need_refresh = true;
@@ -230,14 +243,14 @@ void handle_sensor_auto_control(void) {
 void report_device_status(void) {
     StaticJsonDocument<256> doc;
 
-    doc["temperature"] = gl_current_temp;
-    doc["light"] = gl_current_lux;
-    doc["mode"] = is_auto_mode ? "auto" : "manual";
-    doc["key1_lock"] = sys_power_on;
+    doc["temperature"] = sys.current_temp;
+    doc["light"] = sys.current_lux;
+    doc["mode"] = sys.is_auto ? "auto" : "manual";
+    doc["key1_lock"] = sys.power_on;
     doc["relay3"] = (get_led_status() == RELAY_ON);
     doc["relay4"] = (get_fun_status() == RELAY_ON);
-    doc["temp_threshold"] = temp_threshold;
-    doc["light_threshold"] = light_threshold;
+    doc["sys.temp_th"] = sys.temp_th;
+    doc["sys.light_th"] = sys.light_th;
 
     char output[256];
     serializeJson(doc, output);
@@ -252,7 +265,7 @@ void report_device_status(void) {
  */
 void mqtt_callback_handler(char* topic, byte* payload, unsigned int length) {
     // 如果总闸关闭，直接丢弃拒绝执行服务器远程控制
-    if (!sys_power_on) {
+    if (!sys.power_on) {
         Serial.println(">> [MQTT 拒绝]: 总闸关闭中，无视远程下行命令。");
         return;
     }
@@ -277,7 +290,7 @@ void mqtt_callback_handler(char* topic, byte* payload, unsigned int length) {
         int relay_id = doc["relay"];
         bool val = doc["value"];
 
-        if (is_auto_mode) {
+        if (sys.is_auto) {
             Serial.println(">> [MQTT 拒绝]: 当前是自动模式，无法手动控制继电器！");
             return;
         }
@@ -285,12 +298,12 @@ void mqtt_callback_handler(char* topic, byte* payload, unsigned int length) {
         if (relay_id == 3) { // 对应系统里的 LED 灯光
             set_led_status(val ? RELAY_ON : RELAY_OFF);
             // 同步手动状态码
-            if (val) manual_state |= 0x02; else manual_state &= ~0x02;
+            if (val) sys.manual_code |= 0x02; else sys.manual_code &= ~0x02;
         } 
         else if (relay_id == 4) { // 对应系统里的 风机
             set_fun_status(val ? RELAY_ON : RELAY_OFF);
             // 同步手动状态码
-            if (val) manual_state |= 0x01; else manual_state &= ~0x01;
+            if (val) sys.manual_code |= 0x01; else sys.manual_code &= ~0x01;
         }
         report_device_status(); // 状态改变后立即主动上报一次
     }
@@ -298,9 +311,9 @@ void mqtt_callback_handler(char* topic, byte* payload, unsigned int length) {
     else if (strcmp(cmd, "set_mode") == 0) {
         const char* mode = doc["mode"];
         if (strcmp(mode, "auto") == 0) {
-            is_auto_mode = true;
+            sys.is_auto = true;
         } else if (strcmp(mode, "manual") == 0) {
-            is_auto_mode = false;
+            sys.is_auto = false;
         }
         report_device_status();
     }
@@ -311,10 +324,10 @@ void mqtt_callback_handler(char* topic, byte* payload, unsigned int length) {
     // 4. 设置阈值命令 (set_threshold)
     else if (strcmp(cmd, "set_threshold") == 0) {
         if (doc.containsKey("temp")) {
-            temp_threshold = doc["temp"];
+            sys.temp_th = doc["temp"];
         }
         if (doc.containsKey("light")) {
-            light_threshold = doc["light"];
+            sys.light_th = doc["light"];
         }
         report_device_status();
     }
