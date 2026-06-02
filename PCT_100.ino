@@ -9,6 +9,7 @@
 #include "wifi_drv.h"
 #include "mqtt_client_drv.h"
 #include "oled_ui.h"
+#include "serial_ctrl_drv.h"
 
 // ==================== 业务状态全局变量 ====================
 bool sys_power_on = false;     // 系统总闸状态:true-开启,false-关闭
@@ -22,6 +23,7 @@ unsigned int light_threshold = 300; // 光照阈值
 // 数据缓存变量
 float gl_current_temp = 25.0;       // 温度全局缓存
 unsigned int gl_current_lux = 500; // 光照全局缓存
+
 // WiFi 信息
 String input_ssid = "";
 String input_pwd  = "";
@@ -52,11 +54,18 @@ void setup() {
     // 初始化网络与MQTT
     mqtt_client_init();
     mqtt_client_set_callback(mqtt_callback_handler);
-    
+
     if (wifi_drv_auto_connect(input_ssid, input_pwd)) {
-        wifi_configured = true; // 如果闪存有数据，直接激活后台 loop 维护任务
-    } else {
-        Serial.println("\n>> 请通过串口输入 WiFi 信息，格式为: SSID,PASSWORD (注意中间有逗号)");
+        wifi_configured = true; 
+    } 
+    else {
+      // 串口交互扫描配网
+      Serial.println(">> [WiFi]: 未满足自动联网条件，启动串口交互配网...");
+      wifi_drv_interactive_config(input_ssid, input_pwd);
+
+      if (wifi_drv_is_connected()) {
+        wifi_configured = true;
+      }
     }
     Serial.println(">> 系统初始化完成，等待总闸 KEY1 闭合...");
 }
@@ -65,10 +74,20 @@ void loop() {
     // ----------------------------------------------------
     // 网络层任务：高频非阻塞轮询
     // ----------------------------------------------------
-    handle_serial_config();
+    serial_ctrl_loop();
 
     if (wifi_configured) {
-        wifi_drv_loop(input_ssid.c_str(), input_pwd.c_str());
+        // 记住当前网络名，用于判断网络是否被换了
+        String old_ssid = input_ssid; 
+        
+        // 传入引用，内部修改会直接同步到外层的全局变量中
+        wifi_drv_loop(input_ssid, input_pwd, wifi_configured);
+        
+        // 状态交由外层解耦处理：如果 SSID 变了，说明内部触发了换网
+        if (input_ssid != old_ssid) {
+            oled_need_refresh = true; 
+        }
+        
         mqtt_client_loop();
     }
     
@@ -222,31 +241,6 @@ void handle_sensor_auto_control(void) {
 }
 
 /**
- * @brief 串口解析函数：支持动态输入 "SSID,PASSWORD" 换网
- */
-void handle_serial_config(void) {
-    if (Serial.available() > 0) {
-        String input_str = Serial.readStringUntil('\n');
-        input_str.trim(); 
-
-        int comma_index = input_str.indexOf(',');
-        if (comma_index != -1) {
-            input_ssid = input_str.substring(0, comma_index);
-            input_pwd  = input_str.substring(comma_index + 1);
-
-            Serial.println(">> 收到串口网络配置!");
-            Serial.printf(">> [SSID]: %s \n", input_ssid.c_str());
-            
-            // 驱动独立 WiFi 库发起非阻塞连接
-            wifi_drv_init(input_ssid.c_str(), input_pwd.c_str());
-            wifi_configured = true;
-        } else {
-            Serial.println(">> [错误]: 格式不正确，请输入: SSID,PASSWORD");
-        }
-    }
-}
-
-/**
  * @brief 构造并上报当前的设备状态 (JSON 格式)
  */
 void report_device_status(void) {
@@ -265,8 +259,8 @@ void report_device_status(void) {
     serializeJson(doc, output);
     mqtt_client_publish(output);
     
-    Serial.print(">> [MQTT 上报]: ");
-    Serial.println(output);
+    // Serial.print(">> [MQTT 上报]: ");
+    // Serial.println(output);
 }
 
 /**

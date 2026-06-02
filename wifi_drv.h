@@ -19,8 +19,10 @@ bool wifi_drv_is_connected(void);
 /**
  * @brief WiFi 状态维护句柄（可放置于主 loop，用于断线自动重连）
  */
-void wifi_drv_loop(const char* ssid, const char* password);
+void wifi_drv_loop(String &ssid, String &password, bool &configured);
 //开机自动回连接口，使用 String 引用向外同步历史数据
 bool wifi_drv_auto_connect(String &out_ssid, String &out_pwd);
+// 交互式串口扫描与配网
+void wifi_drv_interactive_config(String &out_ssid, String &out_pwd);
 
 #endif
