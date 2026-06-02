@@ -24,10 +24,6 @@ unsigned int light_threshold = 300; // 光照阈值
 float gl_current_temp = 25.0;       // 温度全局缓存
 unsigned int gl_current_lux = 500; // 光照全局缓存
 
-// WiFi 信息
-String input_ssid = "";
-String input_pwd  = "";
-bool wifi_configured = false;
 // ==================== 时间片内核变量 ====================
 unsigned long timer_key_logic = 0;
 unsigned long timer_oled_ui   = 0;
@@ -50,23 +46,12 @@ void setup() {
     ldr_init();
     ds18b20_init();
     oled_ui_init();
+    wifi_drv_init();
 
-    // 初始化网络与MQTT
+    // 初始化MQTT
     mqtt_client_init();
     mqtt_client_set_callback(mqtt_callback_handler);
-
-    if (wifi_drv_auto_connect(input_ssid, input_pwd)) {
-        wifi_configured = true; 
-    } 
-    else {
-      // 串口交互扫描配网
-      Serial.println(">> [WiFi]: 未满足自动联网条件，启动串口交互配网...");
-      wifi_drv_interactive_config(input_ssid, input_pwd);
-
-      if (wifi_drv_is_connected()) {
-        wifi_configured = true;
-      }
-    }
+    
     Serial.println(">> 系统初始化完成，等待总闸 KEY1 闭合...");
 }
 
@@ -74,20 +59,13 @@ void loop() {
     // ----------------------------------------------------
     // 网络层任务：高频非阻塞轮询
     // ----------------------------------------------------
-    serial_ctrl_loop();
+    // serial_ctrl_loop();
 
-    if (wifi_configured) {
-        // 记住当前网络名，用于判断网络是否被换了
-        String old_ssid = input_ssid; 
-        
-        // 传入引用，内部修改会直接同步到外层的全局变量中
-        wifi_drv_loop(input_ssid, input_pwd, wifi_configured);
-        
-        // 状态交由外层解耦处理：如果 SSID 变了，说明内部触发了换网
-        if (input_ssid != old_ssid) {
-            oled_need_refresh = true; 
-        }
-        
+    // 驱动库自己管内部状态，main.cpp 只需要机械性地调用 loop
+    wifi_drv_loop();
+
+    // 只要硬件网络层是通的，就维持 MQTT 客户端底层轮询
+    if (wifi_drv_is_connected()) {
         mqtt_client_loop();
     }
     
@@ -173,6 +151,7 @@ void handle_hardware_logic(void) {
 
             oled_need_refresh = true;
             Serial.println(">> [总闸]: 开启！切回默认自动模式。");
+            report_device_status();
         }
     } else {
         if (sys_power_on) {
@@ -196,6 +175,7 @@ void handle_hardware_logic(void) {
 
         Serial.print(">> [KEY2长按]: 切换模式为 -> ");
         Serial.println(is_auto_mode ? "【自动模式】" : "【手动模式】");
+        report_device_status();
         return;
     }
 
@@ -208,11 +188,11 @@ void handle_hardware_logic(void) {
             
             Serial.print(">> [KEY2短按]: 手动状态切换 -> ");
             Serial.println(manual_state, BIN);
+            // 根据状态码控制继电器 (低位控制风扇FUN_PIN，高位控制灯LED_PIN)
+            set_led_status((manual_state & 0x02) ? RELAY_ON : RELAY_OFF); // 6号引脚
+            set_fun_status((manual_state & 0x01) ? RELAY_ON : RELAY_OFF); // 7号引脚
+            report_device_status();
         }
-
-        // 根据状态码控制继电器 (低位控制风扇FUN_PIN，高位控制灯LED_PIN)
-        set_led_status((manual_state & 0x02) ? RELAY_ON : RELAY_OFF); // 6号引脚
-        set_fun_status((manual_state & 0x01) ? RELAY_ON : RELAY_OFF); // 7号引脚
     } 
 }
 
@@ -285,8 +265,8 @@ void mqtt_callback_handler(char* topic, byte* payload, unsigned int length) {
     const char* cmd = doc["cmd"];
     if (cmd == NULL) return;
 
-    Serial.print(">> [MQTT 收到命令]: ");
-    Serial.println(cmd);
+    //Serial.print(">> [MQTT 收到命令]: ");
+    //Serial.println(cmd);
 
     // 1. 控制继电器命令 (set_relay)
     if (strcmp(cmd, "set_relay") == 0) {

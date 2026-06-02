@@ -105,7 +105,6 @@ void serial_ctrl_loop(void) {
     } 
     else {
         Serial.println(">> [串口错误]: 未知指令！可用格式：");
-        Serial.println("   1. WiFi配置: SSID,PASSWORD");
         Serial.println("   2. 文本调参: SET:TEMP=30.5  SET:LIGHT=200");
         Serial.println("   3. 参数查询: GET:STATUS");
         Serial.println("   4. JSON调参: {\"temp_th\":30.5,\"light_th\":200}");

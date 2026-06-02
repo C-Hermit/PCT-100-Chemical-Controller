@@ -3,26 +3,19 @@
 
 #include <Arduino.h>
 
-/**
- * @brief 异步/同步启动 WiFi 连接
- * @param ssid WiFi名称
- * @param password WiFi密码
- */
-void wifi_drv_init(const char* ssid, const char* password);
+// 初始化网络状态：尝试自动回连，失败则直接拉起串口配网
+void wifi_drv_init(void);
 
-/**
- * @brief 获取当前 WiFi 连接状态
- * @return true: 已连接, false: 断开
- */
+// 核心非阻塞轮询状态机：挂载在主循环中，负责断线计数、重连、断网换网
+void wifi_drv_loop(void);
+
+// 查询当前 WiFi 硬件是否真正处于连通状态
 bool wifi_drv_is_connected(void);
 
-/**
- * @brief WiFi 状态维护句柄（可放置于主 loop，用于断线自动重连）
- */
-void wifi_drv_loop(String &ssid, String &password, bool &configured);
-//开机自动回连接口，使用 String 引用向外同步历史数据
-bool wifi_drv_auto_connect(String &out_ssid, String &out_pwd);
-// 交互式串口扫描与配网
-void wifi_drv_interactive_config(String &out_ssid, String &out_pwd);
+// 获取当前连接成功的本地 IP 地址（方便 OLED 等外设获取显示）
+String wifi_drv_get_local_ip(void);
+
+// 检查 WiFi 状态是否发生过改变（例如刚才断网换网成功了），用于通知外层刷新 OLEDUI
+bool wifi_drv_check_renotify(void);
 
 #endif
