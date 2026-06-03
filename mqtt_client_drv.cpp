@@ -1,48 +1,116 @@
 #include "mqtt_client_drv.h"
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <Preferences.h>
 
-#include "wifi_drv.h" 
+#include "version.h"     // 默认 DEVICE_ID
+#include "wifi_drv.h"
 
+// ==================== 静态对象 ====================
 static WiFiClient espClient;
 static PubSubClient client(espClient);
 
-// 内部私有：断线带密重连机制
-static void mqtt_reconnect() {
-    // 核心防御：如果底层 WiFi 还没连上，绝对不去尝试连接 MQTT，防止内核产生硬死锁
-    if (!wifi_drv_is_connected()) {
-        return;
-    }
+static mqtt_config_t _config;
+static char _topic_publish[64];
+static char _topic_subscribe[64];
 
-    static unsigned long last_reconnect_time = 0;
-    // 限制重连频率：每 5 秒最多尝试连接一次，决不无限制死循环卡死 main loop
-    if (millis() - last_reconnect_time < 5000) {
-        return;
-    }
-    last_reconnect_time = millis();
+// ==================== 默认配置（NVS 为空时的回退值） ====================
+#define DFLT_SERVER   "47.98.170.180"
+#define DFLT_PORT     8081
+#define DFLT_USER     "dzdx_emqx"
+#define DFLT_PASSWORD "Jp4!sQ7$"
 
-    Serial.print(">> [MQTT]: 正在尝试连接有密 MQTT 服务器...");
-    String clientId = "ESP32C3-" + String(random(0, 0xffff), HEX);
-    
-    bool connect_status = false;
-    if (strlen(MQTT_USER) > 0) {
-        connect_status = client.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD);
+// ==================== 内部函数声明 ====================
+static void build_topics(void);
+static void load_config(void);
+static void save_config(void);
+static void mqtt_reconnect(void);
+
+// ==================== 内部实现 ====================
+
+static void build_topics(void) {
+    snprintf(_topic_publish,  sizeof(_topic_publish),  "chemctrl/%s/status",  _config.device_id);
+    snprintf(_topic_subscribe, sizeof(_topic_subscribe), "chemctrl/%s/command", _config.device_id);
+}
+
+static void load_config(void) {
+    Preferences prefs;
+    prefs.begin("mqtt_space", true);
+
+    String s = prefs.getString("server", DFLT_SERVER);
+    strncpy(_config.server, s.c_str(), sizeof(_config.server) - 1);
+    _config.server[sizeof(_config.server) - 1] = '\0';
+
+    _config.port = (uint16_t)prefs.getUInt("port", DFLT_PORT);
+
+    s = prefs.getString("user", DFLT_USER);
+    strncpy(_config.user, s.c_str(), sizeof(_config.user) - 1);
+    _config.user[sizeof(_config.user) - 1] = '\0';
+
+    s = prefs.getString("pass", DFLT_PASSWORD);
+    strncpy(_config.password, s.c_str(), sizeof(_config.password) - 1);
+    _config.password[sizeof(_config.password) - 1] = '\0';
+
+    s = prefs.getString("dev_id", DEVICE_ID);
+    strncpy(_config.device_id, s.c_str(), sizeof(_config.device_id) - 1);
+    _config.device_id[sizeof(_config.device_id) - 1] = '\0';
+
+    prefs.end();
+    build_topics();
+}
+
+static void save_config(void) {
+    Preferences prefs;
+    prefs.begin("mqtt_space", false);
+    prefs.putString("server", _config.server);
+    prefs.putUInt("port", _config.port);
+    prefs.putString("user", _config.user);
+    prefs.putString("pass", _config.password);
+    prefs.putString("dev_id", _config.device_id);
+    prefs.end();
+    build_topics();
+}
+
+static void mqtt_reconnect(void) {
+    if (!wifi_drv_is_connected()) return;
+
+    static unsigned long last_reconnect = 0;
+    if (millis() - last_reconnect < 5000) return;
+    last_reconnect = millis();
+
+    client.setServer(_config.server, _config.port);
+
+    Serial.print(">> [MQTT]: 尝试连接 ");
+    Serial.print(_config.server);
+    Serial.print(":");
+    Serial.print(_config.port);
+    Serial.print(" ... ");
+
+    String clientId = String(_config.device_id) + "-" + String(random(0, 0xffff), HEX);
+
+    bool ok = false;
+    if (strlen(_config.user) > 0) {
+        ok = client.connect(clientId.c_str(), _config.user, _config.password);
     } else {
-        connect_status = client.connect(clientId.c_str());
+        ok = client.connect(clientId.c_str());
     }
 
-    if (connect_status) {
-        Serial.println(" 认证成功，已连接!");
-        client.subscribe(TOPIC_SUBSCRIBE);
+    if (ok) {
+        Serial.println("已连接!");
+        client.subscribe(_topic_subscribe);
     } else {
-        Serial.print(" 认证失败, 错误状态码码=");
+        Serial.print("失败, rc=");
         Serial.println(client.state());
     }
 }
+
+// ==================== 对外接口 ====================
+
 void mqtt_client_init(void) {
-    // 仅配置服务器地址和端口，真正的连接交由 loop 中的逻辑处理
-    client.setServer(MQTT_SERVER, MQTT_PORT);
+    load_config();
+    client.setServer(_config.server, _config.port);
 }
+
 void mqtt_client_loop(void) {
     if (!client.connected()) {
         mqtt_reconnect();
@@ -52,17 +120,56 @@ void mqtt_client_loop(void) {
 
 bool mqtt_client_publish(const char* payload) {
     if (client.connected()) {
-        return client.publish(TOPIC_PUBLISH, payload);
+        return client.publish(_topic_publish, payload);
     }
     return false;
 }
-// 提供给外部注册回调的接口
+
 void mqtt_client_set_callback(void (*callback)(char*, byte*, unsigned int)) {
-    client.setCallback(callback); // 直接把 PubSubClient 的回调指向传进来的函数
+    client.setCallback(callback);
 }
 
+void mqtt_client_update_config(const mqtt_config_t* cfg) {
+    _config = *cfg;
+    save_config();
+    client.setServer(_config.server, _config.port);
+    if (client.connected()) {
+        client.disconnect();
+    }
+    Serial.println(">> [MQTT]: 配置已更新，自动重连中...");
+}
 
+const mqtt_config_t* mqtt_client_get_config(void) {
+    return &_config;
+}
 
+bool mqtt_client_is_connected(void) {
+    return client.connected();
+}
 
+void mqtt_client_force_reconnect(void) {
+    if (!wifi_drv_is_connected()) {
+        Serial.println(">> [MQTT]: WiFi 未连接，无法重连。");
+        return;
+    }
+    if (client.connected()) {
+        client.disconnect();
+    }
+    client.setServer(_config.server, _config.port);
 
+    String clientId = String(_config.device_id) + "-" + String(random(0, 0xffff), HEX);
+    bool ok = false;
+    if (strlen(_config.user) > 0) {
+        ok = client.connect(clientId.c_str(), _config.user, _config.password);
+    } else {
+        ok = client.connect(clientId.c_str());
+    }
 
+    if (ok) {
+        Serial.println(">> [MQTT]: 重连成功！");
+        client.subscribe(_topic_subscribe);
+    } else {
+        Serial.print(">> [MQTT]: 重连失败, rc=");
+        Serial.println(client.state());
+    }
+}

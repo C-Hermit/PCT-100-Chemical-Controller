@@ -2,6 +2,7 @@
 #include "device.h"
 #include "scheduler.h"
 #include "mqtt_handler.h"
+#include "mqtt_client_drv.h"
 #include "key.h"
 #include "relay.h"
 #include "ldr.h"
@@ -132,4 +133,51 @@ void ctrl_power_off(void) {
     sys.manual_code = 0;
     sched_wake(oled_task_id);
     mqtt_handler_send_status();
+}
+
+// ==================== MQTT 配置管理（业务层封装） ====================
+
+void ctrl_set_mqtt_server(const char* ip, uint16_t port) {
+    mqtt_config_t cfg = *mqtt_client_get_config();
+    if (ip && strlen(ip) > 0) {
+        strncpy(cfg.server, ip, sizeof(cfg.server) - 1);
+        cfg.server[sizeof(cfg.server) - 1] = '\0';
+    }
+    if (port > 0) cfg.port = port;
+    mqtt_client_update_config(&cfg);
+}
+
+void ctrl_set_mqtt_auth(const char* user, const char* pass) {
+    mqtt_config_t cfg = *mqtt_client_get_config();
+    if (user) {
+        strncpy(cfg.user, user, sizeof(cfg.user) - 1);
+        cfg.user[sizeof(cfg.user) - 1] = '\0';
+    }
+    if (pass) {
+        strncpy(cfg.password, pass, sizeof(cfg.password) - 1);
+        cfg.password[sizeof(cfg.password) - 1] = '\0';
+    }
+    mqtt_client_update_config(&cfg);
+}
+
+void ctrl_set_mqtt_device_id(const char* id) {
+    if (!id || strlen(id) == 0) return;
+    mqtt_config_t cfg = *mqtt_client_get_config();
+    strncpy(cfg.device_id, id, sizeof(cfg.device_id) - 1);
+    cfg.device_id[sizeof(cfg.device_id) - 1] = '\0';
+    mqtt_client_update_config(&cfg);
+}
+
+void ctrl_mqtt_print_status(void) {
+    const mqtt_config_t* cfg = mqtt_client_get_config();
+    Serial.println("\n============ [MQTT 配置] ============");
+    Serial.printf("  服务器:   %s:%u\n", cfg->server, cfg->port);
+    Serial.printf("  用户名:   %s\n", cfg->user);
+    Serial.printf("  DeviceID: %s\n", cfg->device_id);
+    Serial.printf("  连接状态: %s\n", mqtt_client_is_connected() ? "已连接" : "未连接");
+    Serial.println("======================================");
+}
+
+void ctrl_mqtt_reconnect(void) {
+    mqtt_client_force_reconnect();
 }

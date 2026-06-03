@@ -13,6 +13,9 @@ static void cmd_wifi_status(void);
 static void cmd_wifi_forget(void);
 static void cmd_set(String args);
 static void cmd_get_status(void);
+static void cmd_mqtt_status(void);
+static void cmd_mqtt_set(String args);
+static void cmd_mqtt_reconnect(void);
 static void print_help(void);
 
 // ==================== 入口：主 loop 轮询 ====================
@@ -32,6 +35,13 @@ void serial_cmd_loop(void) {
         else if (sub == "status")      cmd_wifi_status();
         else if (sub == "forget")      cmd_wifi_forget();
         else Serial.println(">> wifi 命令: scan, list, conn <n> [pwd], status, forget");
+    }
+    else if (input.startsWith("mqtt ")) {
+        String sub = input.substring(5);
+        if (sub == "status")             cmd_mqtt_status();
+        else if (sub.startsWith("set ")) cmd_mqtt_set(sub.substring(4));
+        else if (sub == "reconnect")     cmd_mqtt_reconnect();
+        else Serial.println(">> mqtt 命令: status, set <key>=<val>, reconnect");
     }
     else if (input.startsWith("set ")) {
         cmd_set(input.substring(4));
@@ -180,6 +190,61 @@ static void cmd_get_status(void) {
     Serial.println("====================================");
 }
 
+// ==================== MQTT 命令实现 ====================
+
+static void cmd_mqtt_status(void) {
+    ctrl_mqtt_print_status();
+}
+
+static void cmd_mqtt_set(String args) {
+    args.trim();
+    int eq = args.indexOf('=');
+    if (eq < 0) {
+        Serial.println(">> 格式: mqtt set <key>=<value>");
+        Serial.println("   可用键: ip, port, user, pass, device_id");
+        return;
+    }
+
+    String key = args.substring(0, eq);
+    String val = args.substring(eq + 1);
+    key.trim();
+    val.trim();
+    if (key.length() == 0 || val.length() == 0) {
+        Serial.println(">> 键或值为空。");
+        return;
+    }
+
+    if (key == "ip") {
+        ctrl_set_mqtt_server(val.c_str(), 0);
+    }
+    else if (key == "port") {
+        int p = val.toInt();
+        if (p <= 0 || p > 65535) {
+            Serial.println(">> 端口号无效 (1-65535)。");
+            return;
+        }
+        ctrl_set_mqtt_server(NULL, (uint16_t)p);
+    }
+    else if (key == "user") {
+        ctrl_set_mqtt_auth(val.c_str(), NULL);
+    }
+    else if (key == "pass") {
+        ctrl_set_mqtt_auth(NULL, val.c_str());
+    }
+    else if (key == "device_id") {
+        ctrl_set_mqtt_device_id(val.c_str());
+    }
+    else {
+        Serial.printf(">> 未知键: %s (可用: ip, port, user, pass, device_id)\n", key.c_str());
+        return;
+    }
+    Serial.println(">> MQTT 配置已写入 Flash 并触发重连。");
+}
+
+static void cmd_mqtt_reconnect(void) {
+    ctrl_mqtt_reconnect();
+}
+
 static void print_help(void) {
     Serial.println("\n可用命令：");
     Serial.println("  wifi scan             扫描 WiFi 网络");
@@ -187,6 +252,9 @@ static void print_help(void) {
     Serial.println("  wifi conn <n> [pwd]   连接第 n 个网络");
     Serial.println("  wifi status           显示 WiFi 连接状态");
     Serial.println("  wifi forget           清除保存的 WiFi 凭据");
+    Serial.println("  mqtt status           显示 MQTT 配置与连接状态");
+    Serial.println("  mqtt set <k>=<v>      设置 MQTT 参数 (ip/port/user/pass/device_id)");
+    Serial.println("  mqtt reconnect        强制重连 MQTT");
     Serial.println("  set temp=<value>      设置温度阈值");
     Serial.println("  set light=<value>     设置光照阈值");
     Serial.println("  set mode=auto|manual  切换自动/手动模式");

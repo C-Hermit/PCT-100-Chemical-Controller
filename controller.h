@@ -22,4 +22,11 @@ void ctrl_set_temp_threshold(float t);
 void ctrl_set_light_threshold(unsigned int l);
 void ctrl_power_off(void);
 
+// ========== MQTT 配置管理（业务层封装，不暴露传输层细节）==========
+void ctrl_set_mqtt_server(const char* ip, uint16_t port);
+void ctrl_set_mqtt_auth(const char* user, const char* pass);
+void ctrl_set_mqtt_device_id(const char* id);
+void ctrl_mqtt_print_status(void);
+void ctrl_mqtt_reconnect(void);
+
 #endif
