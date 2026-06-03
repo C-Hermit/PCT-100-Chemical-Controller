@@ -14,6 +14,12 @@ struct SystemState {
 
     float temp_th;             // 温度阈值
     unsigned int light_th;     // 光照阈值
+
+    // 指示灯模块状态（由编排层 + 业务层在运行中刷新）
+    bool wifi_connected;       // WiFi 连接状态
+    bool mqtt_connected;       // MQTT 连接状态
+    bool led_relay_on;         // LED 继电器状态
+    bool fan_relay_on;         // 风扇继电器状态
 };
 
 extern SystemState sys;

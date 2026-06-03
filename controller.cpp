@@ -34,6 +34,8 @@ void ctrl_key_logic(void) {
             sys.power_on = false;
             set_led_status(RELAY_OFF);
             set_fun_status(RELAY_OFF);
+            sys.led_relay_on = false;
+            sys.fan_relay_on = false;
             sys.manual_code = 0;
             Serial.println(">> [总闸]: 关闭！所有功能切断。");
             sched_wake(oled_task_id);
@@ -59,6 +61,8 @@ void ctrl_key_logic(void) {
                       (sys.manual_code & 0x01) ? 1 : 0);
         set_led_status((sys.manual_code & 0x02) ? RELAY_ON : RELAY_OFF);
         set_fun_status((sys.manual_code & 0x01) ? RELAY_ON : RELAY_OFF);
+        sys.led_relay_on = (sys.manual_code & 0x02);
+        sys.fan_relay_on = (sys.manual_code & 0x01);
         sched_wake(oled_task_id);
         mqtt_handler_send_status();
     }
@@ -72,8 +76,9 @@ void ctrl_auto_light(void) {
 
     if (sys.is_auto) {
         bool on = (sys.current_lux < sys.light_th);
-        if (on != (get_led_status() == RELAY_ON)) {
+        if (on != sys.led_relay_on) {
             set_led_status(on ? RELAY_ON : RELAY_OFF);
+            sys.led_relay_on = on;
             sched_wake(oled_task_id);
             mqtt_handler_send_status();
         }
@@ -86,8 +91,9 @@ void ctrl_auto_fan(void) {
 
     if (sys.is_auto) {
         bool on = (sys.current_temp > sys.temp_th);
-        if (on != (get_fun_status() == RELAY_ON)) {
+        if (on != sys.fan_relay_on) {
             set_fun_status(on ? RELAY_ON : RELAY_OFF);
+            sys.fan_relay_on = on;
             sched_wake(oled_task_id);
             mqtt_handler_send_status();
         }
@@ -99,9 +105,11 @@ void ctrl_auto_fan(void) {
 void ctrl_set_relay(int id, bool on) {
     if (id == 3) {
         set_led_status(on ? RELAY_ON : RELAY_OFF);
+        sys.led_relay_on = on;
         if (on) sys.manual_code |= 0x02; else sys.manual_code &= ~0x02;
     } else if (id == 4) {
         set_fun_status(on ? RELAY_ON : RELAY_OFF);
+        sys.fan_relay_on = on;
         if (on) sys.manual_code |= 0x01; else sys.manual_code &= ~0x01;
     }
     sched_wake(oled_task_id);
@@ -130,6 +138,8 @@ void ctrl_power_off(void) {
     sys.power_on = false;
     set_led_status(RELAY_OFF);
     set_fun_status(RELAY_OFF);
+    sys.led_relay_on = false;
+    sys.fan_relay_on = false;
     sys.manual_code = 0;
     sched_wake(oled_task_id);
     mqtt_handler_send_status();
