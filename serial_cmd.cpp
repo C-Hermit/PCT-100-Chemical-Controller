@@ -8,10 +8,10 @@
 // ==================== 内部函数声明 ====================
 static void cmd_wifi_scan(void);
 static void cmd_wifi_list(void);
-static void cmd_wifi_conn(const String& args);
+static void cmd_wifi_conn(String args);
 static void cmd_wifi_status(void);
 static void cmd_wifi_forget(void);
-static void cmd_set(const String& args);
+static void cmd_set(String args);
 static void cmd_get_status(void);
 static void print_help(void);
 
@@ -76,7 +76,7 @@ static void cmd_wifi_list(void) {
     Serial.println("使用 'wifi conn <编号> <密码>' 连接。");
 }
 
-static void cmd_wifi_conn(const String& args) {
+static void cmd_wifi_conn(String args) {
     args.trim();
     if (args.length() == 0) {
         Serial.println(">> 用法: wifi conn <编号> [密码]");
@@ -123,7 +123,7 @@ static void cmd_wifi_forget(void) {
 
 // ==================== 参数设置命令 ====================
 
-static void cmd_set(const String& args) {
+static void cmd_set(String args) {
     args.trim();
     int eq = args.indexOf('=');
     if (eq < 0) {

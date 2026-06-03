@@ -4,6 +4,8 @@
 #include "mqtt_handler.h"
 #include "key.h"
 #include "relay.h"
+#include "ldr.h"
+#include "ds18b20_drv.h"
 
 // scheduler 的 OLED 任务 ID，由 PCT_100.ino 定义
 extern int oled_task_id;

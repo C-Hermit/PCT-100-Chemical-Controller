@@ -5,6 +5,10 @@
 #include "mqtt_client_drv.h"
 #include <ArduinoJson.h>
 
+// ==================== 前向声明 ====================
+
+static void mqtt_callback_handler(char* topic, byte* payload, unsigned int length);
+
 // ==================== 初始化 ====================
 
 void mqtt_handler_init(void) {
