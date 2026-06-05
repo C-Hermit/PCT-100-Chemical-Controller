@@ -261,7 +261,7 @@
                     <strong>安装所需库</strong> — 通过 Library Manager 安装 ArduinoJson、U8g2、PubSubClient、Adafruit NeoPixel、DS18B20 by matmunk。
                 </li>
                 <li>
-                    <strong>编译烧录</strong> — 使用 <code>arduino-cli compile --fqbn esp32:esp32:esp32c3 --upload -p /dev/ttyACM0 PCT_100.ino</code> 编译并上传。
+                    <strong>编译烧录</strong> — 使用 <code>arduino-cli compile --fqbn esp32:esp32:esp32c3 --upload -p /dev/ttyACM0 src/src.ino</code> 编译并上传。
                 </li>
                 <li>
                     <strong>架构原则</strong> — 保持四层单向依赖：驱动不引用业务、业务不引用编排。新增模块遵循 xxx_init / xxx_loop 模式。

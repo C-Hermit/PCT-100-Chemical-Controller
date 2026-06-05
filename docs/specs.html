@@ -160,7 +160,7 @@
             <h3>文件结构</h3>
             <table class="spec-table">
                 <tr><th>层级</th><th>模块文件</th><th>职责</th></tr>
-                <tr><td>编排层</td><td>PCT_100.ino, scheduler, device.h</td><td>初始化顺序、任务注册、loop 轮询</td></tr>
+                <tr><td>编排层</td><td>src.ino, scheduler, device.h</td><td>初始化顺序、任务注册、loop 轮询</td></tr>
                 <tr><td>业务层</td><td>controller, mqtt_handler, ws2812_indicator</td><td>控制策略、阈值判断、状态通知</td></tr>
                 <tr><td>传输层</td><td>wifi_drv, mqtt_client_drv, serial_cmd</td><td>网络通信、串口命令解析</td></tr>
                 <tr><td>驱动层</td><td>key, relay, ldr, ds18b20_drv, oled_ui, ws2812_drv</td><td>硬件寄存器操作、传感器协议</td></tr>
