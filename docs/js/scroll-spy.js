@@ -1,32 +1,58 @@
 // Scroll spy: 滚动时自动高亮当前目录项
 document.addEventListener('DOMContentLoaded', function () {
-    const sections = document.querySelectorAll('section[id]');
-    const navLinks = document.querySelectorAll('.sidebar-nav a');
-
+    var sections = document.querySelectorAll('section[id]');
+    var navLinks = document.querySelectorAll('.sidebar-nav a');
     if (!sections.length || !navLinks.length) return;
 
-    const observer = new IntersectionObserver(function (entries) {
-        let activeId = null;
+    var navHeight = 80;
+    var sectionOffsets = [];
 
-        for (const entry of entries) {
-            if (entry.isIntersecting) {
-                activeId = entry.target.id;
+    function updateOffsets() {
+        sectionOffsets = [];
+        for (var i = 0; i < sections.length; i++) {
+            sectionOffsets.push({
+                id: sections[i].id,
+                top: sections[i].offsetTop
+            });
+        }
+    }
+
+    function highlightCurrent() {
+        var scrollY = window.scrollY + navHeight + 10;
+        var activeId = null;
+
+        for (var i = sectionOffsets.length - 1; i >= 0; i--) {
+            if (sectionOffsets[i].top <= scrollY) {
+                activeId = sectionOffsets[i].id;
+                break;
             }
+        }
+
+        if (!activeId && sectionOffsets.length > 0) {
+            activeId = sectionOffsets[0].id;
         }
 
         if (activeId) {
-            for (const link of navLinks) {
-                link.classList.remove('active');
+            for (var j = 0; j < navLinks.length; j++) {
+                var link = navLinks[j];
                 if (link.getAttribute('href') === '#' + activeId) {
-                    link.classList.add('active');
+                    if (!link.classList.contains('active')) {
+                        link.classList.add('active');
+                    }
+                } else {
+                    link.classList.remove('active');
                 }
             }
         }
-    }, {
-        rootMargin: '-80px 0px -60% 0px'
+    }
+
+    updateOffsets();
+
+    window.addEventListener('scroll', highlightCurrent, { passive: true });
+    window.addEventListener('resize', function () {
+        updateOffsets();
+        highlightCurrent();
     });
 
-    for (const section of sections) {
-        observer.observe(section);
-    }
+    highlightCurrent();
 });
