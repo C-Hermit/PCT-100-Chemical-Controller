@@ -37,27 +37,6 @@ SystemState sys = {
     .fan_relay_on = false,
 };
 
-// 任务 ID，供其他模块唤醒
-int oled_task_id;
-
-// ==================== 定时任务包装器 ====================
-static void task_key_logic(void)  { ctrl_key_logic(); }
-static void task_ldr_sense(void)  { ctrl_auto_light(); }
-static void task_temp_sense(void) { ctrl_auto_fan(); }
-
-static void task_oled_refresh(void) {
-    oled_ui_refresh(
-        sys.power_on,
-        sys.is_auto,
-        sys.current_lux,
-        sys.light_th,
-        sys.current_temp,
-        sys.temp_th,
-        (get_led_status() == RELAY_ON),
-        (get_fun_status() == RELAY_ON)
-    );
-}
-
 // ==================== Arduino 核心接口 ====================
 
 void setup() {
@@ -75,18 +54,13 @@ void setup() {
     wifi_drv_init();
     mqtt_client_init();
 
-    // ── 业务层初始化 ──
+    // ── 系统服务：调度器 ──
+    sched_init();
+
+    // ── 业务层初始化（各模块自行注册定时任务到 scheduler）──
     ctrl_init();
     mqtt_handler_init();
     ws2812_indicator_init();
-
-    // ── 编排层：注册定时任务（含 FreeRTOS 任务栈大小）──
-    sched_init();
-    sched_add(task_key_logic,         20,   2048);  // 按键状态机，栈需求小
-    sched_add(task_ldr_sense,         50,   2048);  // 光照采样，栈需求小
-    sched_add(task_temp_sense,        2000, 4096);  // DS18B20 1-Wire 协议，栈需求较大
-    oled_task_id = sched_add(task_oled_refresh, 3000, 4096);  // U8g2 字库渲染，栈需求大
-    sched_add(ws2812_indicator_loop,  20,   2048);  // 指示灯动画，栈需求小
 
     Serial.println(">> 系统初始化完成，等待总闸 KEY1 闭合...");
 }

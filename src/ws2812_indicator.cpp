@@ -1,6 +1,7 @@
 #include "ws2812_indicator.h"
 #include "ws2812_drv.h"
 #include "device.h"
+#include "scheduler.h"
 
 // ==================== 动画段定义 ====================
 
@@ -144,6 +145,8 @@ void ws2812_indicator_init(void) {
     _from_r = _from_g = _from_b = 0;
     _cur_r  = _cur_g  = _cur_b  = 0;
     _initialized = true;
+
+    sched_add(ws2812_indicator_loop, 20, 2048);
 }
 
 void ws2812_indicator_loop(void) {

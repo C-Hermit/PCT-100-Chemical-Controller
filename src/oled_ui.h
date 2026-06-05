@@ -21,7 +21,7 @@
 // 初始化 OLED 屏幕
 void oled_ui_init(void);
 
-// 核心刷新函数：传入系统当前的各项状态变量
-void oled_ui_refresh(bool main_power, bool is_auto, unsigned int light, unsigned int light_th, float temp, float temp_th, bool led_on, bool fan_on);
+// 核心刷新函数：从 sys 读取系统状态直接渲染
+void oled_ui_refresh(void);
 
 #endif

@@ -7,14 +7,19 @@
 #include "relay.h"
 #include "ldr.h"
 #include "ds18b20_drv.h"
+#include "oled_ui.h"
 
-// scheduler 的 OLED 任务 ID，由 PCT_100.ino 定义
-extern int oled_task_id;
+// scheduler 的 OLED 任务 ID（内部使用，由 ctrl_init 注册）
+static int ctrl_oled_task_id;
 
 // ==================== 初始化 ====================
 
 void ctrl_init(void) {
-    // 继电器初始化已在 relay_init() 中完成
+    // 注册定时任务（周期 ms, 栈大小字节）
+    sched_add(ctrl_key_logic,  20,   2048);
+    sched_add(ctrl_auto_light, 50,   2048);
+    sched_add(ctrl_auto_fan,   2000, 4096);
+    ctrl_oled_task_id = sched_add(oled_ui_refresh, 3000, 4096);
 }
 
 // ==================== 按键状态机 ====================
@@ -26,7 +31,7 @@ void ctrl_key_logic(void) {
             sys.power_on = true;
             sys.is_auto = true;
             Serial.println(">> [总闸]: 开启！切回默认自动模式。");
-            sched_wake(oled_task_id);
+            sched_wake(ctrl_oled_task_id);
             mqtt_handler_send_status();
         }
     } else {
@@ -38,7 +43,7 @@ void ctrl_key_logic(void) {
             sys.fan_relay_on = false;
             sys.manual_code = 0;
             Serial.println(">> [总闸]: 关闭！所有功能切断。");
-            sched_wake(oled_task_id);
+            sched_wake(ctrl_oled_task_id);
             mqtt_handler_send_status();
         }
         return;
@@ -48,7 +53,7 @@ void ctrl_key_logic(void) {
     if (key_check(1, KEY_LONG)) {
         sys.is_auto = !sys.is_auto;
         Serial.printf(">> [KEY2长按]: 模式 -> %s\n", sys.is_auto ? "自动" : "手动");
-        sched_wake(oled_task_id);
+        sched_wake(ctrl_oled_task_id);
         mqtt_handler_send_status();
         return;
     }
@@ -63,7 +68,7 @@ void ctrl_key_logic(void) {
         set_fun_status((sys.manual_code & 0x01) ? RELAY_ON : RELAY_OFF);
         sys.led_relay_on = (sys.manual_code & 0x02);
         sys.fan_relay_on = (sys.manual_code & 0x01);
-        sched_wake(oled_task_id);
+        sched_wake(ctrl_oled_task_id);
         mqtt_handler_send_status();
     }
 }
@@ -79,7 +84,7 @@ void ctrl_auto_light(void) {
         if (on != sys.led_relay_on) {
             set_led_status(on ? RELAY_ON : RELAY_OFF);
             sys.led_relay_on = on;
-            sched_wake(oled_task_id);
+            sched_wake(ctrl_oled_task_id);
             mqtt_handler_send_status();
         }
     }
@@ -94,7 +99,7 @@ void ctrl_auto_fan(void) {
         if (on != sys.fan_relay_on) {
             set_fun_status(on ? RELAY_ON : RELAY_OFF);
             sys.fan_relay_on = on;
-            sched_wake(oled_task_id);
+            sched_wake(ctrl_oled_task_id);
             mqtt_handler_send_status();
         }
     }
@@ -112,25 +117,25 @@ void ctrl_set_relay(int id, bool on) {
         sys.fan_relay_on = on;
         if (on) sys.manual_code |= 0x01; else sys.manual_code &= ~0x01;
     }
-    sched_wake(oled_task_id);
+    sched_wake(ctrl_oled_task_id);
     mqtt_handler_send_status();
 }
 
 void ctrl_set_mode(bool auto_mode) {
     sys.is_auto = auto_mode;
-    sched_wake(oled_task_id);
+    sched_wake(ctrl_oled_task_id);
     mqtt_handler_send_status();
 }
 
 void ctrl_set_temp_threshold(float t) {
     sys.temp_th = t;
-    sched_wake(oled_task_id);
+    sched_wake(ctrl_oled_task_id);
     mqtt_handler_send_status();
 }
 
 void ctrl_set_light_threshold(unsigned int l) {
     sys.light_th = l;
-    sched_wake(oled_task_id);
+    sched_wake(ctrl_oled_task_id);
     mqtt_handler_send_status();
 }
 
@@ -141,7 +146,7 @@ void ctrl_power_off(void) {
     sys.led_relay_on = false;
     sys.fan_relay_on = false;
     sys.manual_code = 0;
-    sched_wake(oled_task_id);
+    sched_wake(ctrl_oled_task_id);
     mqtt_handler_send_status();
 }
 
