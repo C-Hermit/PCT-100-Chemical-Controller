@@ -12,6 +12,8 @@
 // scheduler 的 OLED 任务 ID（内部使用，由 ctrl_init 注册）
 static int ctrl_oled_task_id;
 
+static void task_oled_refresh(void) { oled_ui_refresh(sys); }
+
 // ==================== 初始化 ====================
 
 void ctrl_init(void) {
@@ -19,7 +21,7 @@ void ctrl_init(void) {
     sched_add(ctrl_key_logic,  20,   2048);
     sched_add(ctrl_auto_light, 50,   2048);
     sched_add(ctrl_auto_fan,   2000, 4096);
-    ctrl_oled_task_id = sched_add(oled_ui_refresh, 3000, 4096);
+    ctrl_oled_task_id = sched_add(task_oled_refresh, 3000, 4096);
 }
 
 // ==================== 按键状态机 ====================

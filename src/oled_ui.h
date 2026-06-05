@@ -21,7 +21,9 @@
 // 初始化 OLED 屏幕
 void oled_ui_init(void);
 
-// 核心刷新函数：从 sys 读取系统状态直接渲染
-void oled_ui_refresh(void);
+struct SystemState;  // 前向声明，避免驱动层反向依赖
+
+// 核心刷新函数：传入系统状态结构体，不依赖全局 sys
+void oled_ui_refresh(const SystemState& state);
 
 #endif

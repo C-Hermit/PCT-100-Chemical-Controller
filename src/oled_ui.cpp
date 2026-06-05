@@ -18,30 +18,28 @@ void oled_ui_init(void) {
     u8g2.setFontPosTop(); // 将坐标原点设在字体的左上角 (y = 0, 16, 32, 48)
 }
 
-void oled_ui_refresh(void) {
+void oled_ui_refresh(const SystemState& state) {
     u8g2.clearBuffer();
     char buf[32];
 
-    // 1. 第一行：模式 + 总闸 + WiFi (y = 0)
-    snprintf(buf, sizeof(buf), "模式:%s", sys.is_auto ? "自动" : "手动");
+    // 1. 第一行：MODE 与 MAIN (y = 0)
+    snprintf(buf, sizeof(buf), "模式: %s", state.is_auto ? "自动" : "手动");
     u8g2.drawUTF8(0, 0, buf);
-    snprintf(buf, sizeof(buf), "总闸:%s", sys.power_on ? "ON" : "OFF");
-    u8g2.drawUTF8(56, 0, buf);
-    snprintf(buf, sizeof(buf), "W:%s", sys.wifi_connected ? "Y" : "N");
-    u8g2.drawUTF8(100, 0, buf);
+    snprintf(buf, sizeof(buf), "总闸: %s", state.power_on ? "ON" : "OFF");
+    u8g2.drawUTF8(70, 0, buf);
 
     // 2. 第二行：LIGHT 实时值 / 阈值 (y = 16)
-    snprintf(buf, sizeof(buf), "光照: %u/%u", sys.current_lux, sys.light_th);
+    snprintf(buf, sizeof(buf), "光照: %u/%u", state.current_lux, state.light_th);
     u8g2.drawUTF8(0, 16, buf);
 
     // 3. 第三行：TEMP 实时值 / 阈值 (y = 32)
-    snprintf(buf, sizeof(buf), "温度: %.1f/%.1f", sys.current_temp, sys.temp_th);
+    snprintf(buf, sizeof(buf), "温度: %.1f/%.1f", state.current_temp, state.temp_th);
     u8g2.drawUTF8(0, 32, buf);
 
     // 4. 第四行：LED 与 FAN 状态 (y = 48)
-    snprintf(buf, sizeof(buf), "灯光: %s", sys.led_relay_on ? "ON" : "OFF");
+    snprintf(buf, sizeof(buf), "灯光: %s", state.led_relay_on ? "ON" : "OFF");
     u8g2.drawUTF8(0, 48, buf);
-    snprintf(buf, sizeof(buf), "风扇: %s", sys.fan_relay_on ? "ON" : "OFF");
+    snprintf(buf, sizeof(buf), "风扇: %s", state.fan_relay_on ? "ON" : "OFF");
     u8g2.drawUTF8(70, 48, buf);
 
     u8g2.sendBuffer();
