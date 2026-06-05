@@ -2,8 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('host', {
     // MQTT 连接管理
-    connect: (host, port, deviceId) =>
-        ipcRenderer.invoke('mqtt-connect', host, port, deviceId),
+    connect: (host, port, deviceId, user, password) =>
+        ipcRenderer.invoke('mqtt-connect', host, port, deviceId, user, password),
 
     disconnect: () =>
         ipcRenderer.invoke('mqtt-disconnect'),

@@ -8,85 +8,222 @@
 </head>
 <body>
 
-    <!-- ==================== 连接栏 ==================== -->
-    <div class="conn-bar">
-        <input id="ipt-host"     class="conn-input"  value="47.98.170.180" placeholder="服务器">
-        <input id="ipt-port"     class="conn-input sm" value="8081"        placeholder="端口">
-        <input id="ipt-device"   class="conn-input"  value="PCT_100_013"  placeholder="Device ID">
-        <button id="btn-connect" class="btn conn">连接</button>
-    </div>
-    <div id="conn-status" class="conn-status">未连接</div>
-
-    <!-- ==================== 状态面板 ==================== -->
-    <div class="panel">
-        <div class="panel-title">实时状态</div>
-        <div class="grid-2col">
-            <div class="stat-card">
-                <div class="stat-label">温度</div>
-                <div class="stat-val" id="val-temp">--</div>
+    <!-- ==================== 设置页面 ==================== -->
+    <div id="page-settings" class="page hidden">
+        <div class="page-header settings">
+            <button id="btn-back" class="icon-btn back" title="返回">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+            </button>
+            <span class="page-title">设置</span>
+        </div>
+        <div class="card">
+            <div class="card-title">MQTT 连接</div>
+            <div class="form-row">
+                <label>服务器</label>
+                <input id="ipt-host" value="47.98.170.180" placeholder="IP 或域名">
             </div>
-            <div class="stat-card">
-                <div class="stat-label">光照</div>
-                <div class="stat-val" id="val-light">--</div>
+            <div class="form-row">
+                <label>端口</label>
+                <input id="ipt-port" value="8081" placeholder="端口">
             </div>
-            <div class="stat-card">
-                <div class="stat-label">灯光</div>
-                <div class="stat-val" id="val-led">--</div>
+            <div class="form-row">
+                <label>设备 ID</label>
+                <input id="ipt-device" value="PCT_100_013" placeholder="Device ID">
             </div>
-            <div class="stat-card">
-                <div class="stat-label">风扇</div>
-                <div class="stat-val" id="val-fan">--</div>
+            <div class="form-row">
+                <label>用户名</label>
+                <input id="ipt-user" placeholder="可选">
             </div>
-            <div class="stat-card">
-                <div class="stat-label">模式</div>
-                <div class="stat-val" id="val-mode">--</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">总闸</div>
-                <div class="stat-val" id="val-power">--</div>
+            <div class="form-row">
+                <label>密码</label>
+                <input id="ipt-pass" type="password" placeholder="可选">
             </div>
         </div>
     </div>
 
-    <!-- ==================== 控制面板 ==================== -->
-    <div class="panel">
-        <div class="panel-title">手动控制</div>
-        <div class="btn-row">
-            <button id="cmd-led-on"  class="btn ctrl">灯光 ON</button>
-            <button id="cmd-led-off" class="btn ctrl">灯光 OFF</button>
-        </div>
-        <div class="btn-row">
-            <button id="cmd-fan-on"  class="btn ctrl">风扇 ON</button>
-            <button id="cmd-fan-off" class="btn ctrl">风扇 OFF</button>
-        </div>
-        <div class="btn-row">
-            <button id="cmd-mode-auto"   class="btn ctrl">自动模式</button>
-            <button id="cmd-mode-manual" class="btn ctrl">手动模式</button>
-        </div>
-        <div class="btn-row">
-            <button id="cmd-get-status" class="btn ctrl">刷新状态</button>
-        </div>
-    </div>
+    <!-- ==================== 呈现页面 ==================== -->
+    <div id="page-display" class="page">
 
-    <!-- ==================== 阈值设置 ==================== -->
-    <div class="panel">
-        <div class="panel-title">阈值设置</div>
-        <div class="form-row">
-            <label>温度阈值 (°C)</label>
-            <input id="ipt-temp-th" type="number" step="0.1" value="30.0">
-            <button id="cmd-set-temp-th" class="btn sm">设置</button>
+        <!-- 顶栏 -->
+        <div class="page-header main">
+            <div class="header-status">
+                <span class="status-item">
+                    <span id="ind-mqtt" class="status-dot offline"></span>
+                    <span class="status-label">MQTT</span>
+                </span>
+                <span class="status-divider"></span>
+                <span class="status-item">
+                    <span id="ind-device" class="status-dot offline"></span>
+                    <span class="status-label">设备</span>
+                </span>
+            </div>
+            <div class="header-actions">
+                <button id="btn-connect-display" class="btn conn-disconnect">连接</button>
+                <button id="btn-settings" class="icon-btn gear" title="设置">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+            </div>
         </div>
-        <div class="form-row">
-            <label>光照阈值 (Lux)</label>
-            <input id="ipt-light-th" type="number" step="1" value="300">
-            <button id="cmd-set-light-th" class="btn sm">设置</button>
-        </div>
-    </div>
 
-    <!-- ==================== 日志 ==================== -->
-    <div class="panel">
-        <div class="panel-title">日志</div>
-        <div id="log-box" class="log-box"></div>
+        <!-- ==================== 传感器 ==================== -->
+        <div class="card">
+            <div class="card-title">传感器</div>
+            <div class="sensor-row">
+                <div class="sensor-item">
+                    <div class="sensor-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+                    </div>
+                    <div class="sensor-body">
+                        <div class="sensor-label">温度</div>
+                        <div class="sensor-value" id="val-temp">--</div>
+                    </div>
+                </div>
+                <div class="sensor-divider"></div>
+                <div class="sensor-item">
+                    <div class="sensor-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                    </div>
+                    <div class="sensor-body">
+                        <div class="sensor-label">光照</div>
+                        <div class="sensor-value" id="val-light">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 主控区（总闸 → 模式 → 输出）==================== -->
+        <div class="master-panel" id="master-panel">
+            <!-- 总闸 -->
+            <div class="power-section" id="power-section">
+                <div class="power-header">
+                    <div class="power-left">
+                        <div class="power-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10M18.36 6.64a9 9 0 1 1-12.72 0"/></svg>
+                        </div>
+                        <span class="power-label">总闸</span>
+                    </div>
+                    <div class="power-right">
+                        <span class="power-badge" id="power-badge">断开</span>
+                    </div>
+                </div>
+
+                <!-- 总闸内部：模式 + 输出（power-off 时整体 dim） -->
+                <div class="power-body" id="power-body">
+
+                    <!-- 模式 -->
+                    <div class="mode-row">
+                        <div class="mode-left">
+                            <div class="mode-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-9-9 9 9 0 0 1 9-9"/><path d="M9 12h12M12 3l3 3-3 3"/></svg>
+                            </div>
+                            <div class="mode-label-group">
+                                <span class="mode-label-text">模式</span>
+                                <span class="mode-status" id="val-mode">--</span>
+                            </div>
+                        </div>
+                        <div class="mode-right">
+                            <label class="capsule-wrap">
+                                <input type="checkbox" id="toggle-mode">
+                                <span class="capsule-track mode">
+                                    <span class="capsule-label on">自动</span>
+                                    <span class="capsule-knob"></span>
+                                    <span class="capsule-label off">手动</span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 输出：灯光 + 风扇 -->
+                    <div class="output-row">
+                        <div class="output-card" id="card-led">
+                            <div class="output-icon-wrap led">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a6 6 0 0 0-6 6c0 2.4 1.2 4.5 3 5.7V16h6v-2.3c1.8-1.3 3-3.3 3-5.7a6 6 0 0 0-6-6z"/><path d="M9 18h6"/></svg>
+                            </div>
+                            <div class="output-body">
+                                <div class="output-label">灯光</div>
+                                <div class="output-value" id="val-led">--</div>
+                            </div>
+                            <div class="output-control">
+                                <label class="capsule-wrap">
+                                    <input type="checkbox" id="toggle-led">
+                                    <span class="capsule-track">
+                                        <span class="capsule-label on">开</span>
+                                        <span class="capsule-knob"></span>
+                                        <span class="capsule-label off">关</span>
+                                    </span>
+                                </label>
+                                <span class="ctrl-hint" id="hint-led"></span>
+                            </div>
+                        </div>
+                        <div class="output-card" id="card-fan">
+                            <div class="output-icon-wrap fan">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2.5"/></svg>
+                            </div>
+                            <div class="output-body">
+                                <div class="output-label">风扇</div>
+                                <div class="output-value" id="val-fan">--</div>
+                            </div>
+                            <div class="output-control">
+                                <label class="capsule-wrap">
+                                    <input type="checkbox" id="toggle-fan">
+                                    <span class="capsule-track">
+                                        <span class="capsule-label on">开</span>
+                                        <span class="capsule-knob"></span>
+                                        <span class="capsule-label off">关</span>
+                                    </span>
+                                </label>
+                                <span class="ctrl-hint" id="hint-fan"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /power-body -->
+            </div><!-- /power-section -->
+        </div><!-- /master-panel -->
+
+        <!-- ==================== 阈值 ==================== -->
+        <div class="card">
+            <div class="card-title">阈值</div>
+            <div class="thresh-items">
+                <div class="thresh-item">
+                    <div class="thresh-item-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+                        <span>温度</span>
+                    </div>
+                    <div class="thresh-body">
+                        <span class="thresh-current">当前 <strong id="cur-temp-th">--</strong> °C</span>
+                        <div class="thresh-set-row">
+                            <input id="ipt-temp-th" type="number" step="0.1" placeholder="值">
+                            <button id="cmd-set-temp-th" class="btn sm">设定</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="thresh-gap"></div>
+                <div class="thresh-item">
+                    <div class="thresh-item-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                        <span>光照</span>
+                    </div>
+                    <div class="thresh-body">
+                        <span class="thresh-current">当前 <strong id="cur-light-th">--</strong> Lux</span>
+                        <div class="thresh-set-row">
+                            <input id="ipt-light-th" type="number" step="1" placeholder="值">
+                            <button id="cmd-set-light-th" class="btn sm">设定</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 日志 ==================== -->
+        <div class="card log-card">
+            <div class="log-header">
+                <span class="card-title" style="margin-bottom:0;">日志</span>
+                <button id="btn-toggle-log" class="btn-toggle-log">关闭日志</button>
+            </div>
+            <div id="log-box" class="log-box"></div>
+        </div>
+
     </div>
 
     <script src="js/app.js"></script>
