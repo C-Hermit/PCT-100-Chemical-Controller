@@ -5,65 +5,60 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!sections.length || !navLinks.length) return;
 
     var navHeight = 80;
-    var sectionOffsets = [];
+    var offsets = [];
 
     function updateOffsets() {
-        sectionOffsets = [];
+        offsets = [];
         for (var i = 0; i < sections.length; i++) {
-            sectionOffsets.push({
+            offsets.push({
                 id: sections[i].id,
                 top: sections[i].offsetTop
             });
         }
     }
 
-    function setActive(id) {
-        for (var j = 0; j < navLinks.length; j++) {
-            var link = navLinks[j];
-            if (link.getAttribute('href') === '#' + id) {
-                link.classList.add('active');
-            } else {
-                link.classList.remove('active');
-            }
-        }
-    }
-
-    function highlightCurrent() {
+    function doHighlight() {
         var scrollY = window.scrollY + navHeight + 10;
         var activeId = null;
 
-        for (var i = sectionOffsets.length - 1; i >= 0; i--) {
-            if (sectionOffsets[i].top <= scrollY) {
-                activeId = sectionOffsets[i].id;
-                break;
+        // 页面已滚动到底部 → 高亮最后一个
+        if (window.scrollY + window.innerHeight >= document.body.scrollHeight - 2) {
+            if (offsets.length > 0) {
+                activeId = offsets[offsets.length - 1].id;
+            }
+        } else {
+            // 从后往前找：最后一个顶部在可视区上方的章节
+            for (var i = offsets.length - 1; i >= 0; i--) {
+                if (offsets[i].top <= scrollY) {
+                    activeId = offsets[i].id;
+                    break;
+                }
             }
         }
 
-        // 兜底：取第一个章节
-        if (!activeId && sectionOffsets.length > 0) {
-            activeId = sectionOffsets[0].id;
+        if (!activeId && offsets.length > 0) {
+            activeId = offsets[0].id;
         }
 
         if (activeId) {
-            setActive(activeId);
+            for (var j = 0; j < navLinks.length; j++) {
+                var link = navLinks[j];
+                if (link.getAttribute('href') === '#' + activeId) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            }
         }
-    }
-
-    // 点击目录时立即高亮，不等滚动事件
-    for (var k = 0; k < navLinks.length; k++) {
-        navLinks[k].addEventListener('click', function () {
-            var id = this.getAttribute('href').substring(1);
-            setActive(id);
-        });
     }
 
     updateOffsets();
 
-    window.addEventListener('scroll', highlightCurrent, { passive: true });
+    window.addEventListener('scroll', doHighlight, { passive: true });
     window.addEventListener('resize', function () {
         updateOffsets();
-        highlightCurrent();
+        doHighlight();
     });
 
-    highlightCurrent();
+    doHighlight();
 });
