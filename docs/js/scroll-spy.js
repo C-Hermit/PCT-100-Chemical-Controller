@@ -5,40 +5,48 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!sections.length || !navLinks.length) return;
 
     var navHeight = 80;
-    var sectionOffsets = [];
+    var offsets = [];
 
     function updateOffsets() {
-        sectionOffsets = [];
+        offsets = [];
         for (var i = 0; i < sections.length; i++) {
-            sectionOffsets.push({
+            offsets.push({
                 id: sections[i].id,
-                top: sections[i].offsetTop
+                top: sections[i].offsetTop,
+                bottom: sections[i].offsetTop + sections[i].offsetHeight
             });
         }
     }
 
     function highlightCurrent() {
-        var scrollY = window.scrollY + navHeight + 10;
+        var scrollY = window.scrollY;
+        var viewportBottom = scrollY + window.innerHeight;
+        var pageBottom = document.body.scrollHeight;
         var activeId = null;
 
-        for (var i = sectionOffsets.length - 1; i >= 0; i--) {
-            if (sectionOffsets[i].top <= scrollY) {
-                activeId = sectionOffsets[i].id;
-                break;
+        // 到底了 → 高亮最后一个
+        if (viewportBottom >= pageBottom - 2 && offsets.length > 0) {
+            activeId = offsets[offsets.length - 1].id;
+        } else {
+            // 从前向后遍历，取最后一个部分可见的章节
+            // "部分可见" = 章节底部 > scrollY（未完全滚出顶部）
+            for (var i = 0; i < offsets.length; i++) {
+                if (offsets[i].bottom > scrollY + navHeight) {
+                    activeId = offsets[i].id;
+                }
             }
         }
 
-        if (!activeId && sectionOffsets.length > 0) {
-            activeId = sectionOffsets[0].id;
+        // 兜底
+        if (!activeId && offsets.length > 0) {
+            activeId = offsets[0].id;
         }
 
         if (activeId) {
             for (var j = 0; j < navLinks.length; j++) {
                 var link = navLinks[j];
                 if (link.getAttribute('href') === '#' + activeId) {
-                    if (!link.classList.contains('active')) {
-                        link.classList.add('active');
-                    }
+                    link.classList.add('active');
                 } else {
                     link.classList.remove('active');
                 }
@@ -53,6 +61,13 @@ document.addEventListener('DOMContentLoaded', function () {
         updateOffsets();
         highlightCurrent();
     });
+
+    // 点击目录链接后延迟重算（等浏览器完成锚点滚动）
+    for (var k = 0; k < navLinks.length; k++) {
+        navLinks[k].addEventListener('click', function () {
+            setTimeout(highlightCurrent, 100);
+        });
+    }
 
     highlightCurrent();
 });
