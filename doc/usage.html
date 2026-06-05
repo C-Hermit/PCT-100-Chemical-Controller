@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>应用场景 — PCT-100 化工控制实训装置</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ==================== Top Navigation ==================== -->
+<nav class="top-nav">
+    <a href="index.html" class="logo">PCT-100 <span>产品手册</span></a>
+    <ul class="nav-links">
+        <li><a href="index.html">产品说明书</a></li>
+        <li><a href="specs.html">技术规格</a></li>
+        <li><a href="usage.html" class="active">应用场景</a></li>
+    </ul>
+</nav>
+
+<!-- ==================== Layout Wrapper ==================== -->
+<div class="wrapper">
+
+    <!-- ==================== Sidebar ==================== -->
+    <aside class="sidebar">
+        <div class="sidebar-title">目录导航</div>
+        <ul class="sidebar-nav">
+            <li><a href="#scenarios"><span class="num">1</span>应用场景</a></li>
+            <li><a href="#workflow"><span class="num">2</span>操作流程</a></li>
+            <li><a href="#setup"><span class="num">3</span>快速上手指南</a></li>
+            <li><a href="#commands"><span class="num">4</span>常用命令速查</a></li>
+            <li><a href="#mqtt"><span class="num">5</span>MQTT 远程控制</a></li>
+            <li><a href="#dev"><span class="num">6</span>二次开发</a></li>
+        </ul>
+    </aside>
+
+    <!-- ==================== Main Content ==================== -->
+    <main class="main-content">
+
+        <div class="hero">
+            <div><span class="badge">实践指南</span></div>
+            <h1>应用场景与操作指南</h1>
+            <p class="subtitle">从实训教学到物联网开发，PCT-100 的多场景应用与快速上手指南</p>
+        </div>
+
+        <!-- Section 1: Scenarios -->
+        <section id="scenarios">
+            <h2>1. 典型应用场景</h2>
+
+            <div class="app-grid">
+                <div class="app-card">
+                    <div class="card-img">🧪</div>
+                    <div class="card-body">
+                        <h4>化工实训教学</h4>
+                        <p>作为化工自动化控制实训平台，学生可通过本装置学习传感器采集、继电器控制、阈值设定等工业控制基础知识。配合 MQTT 物联网通信，理解工业 IoT 架构。</p>
+                    </div>
+                </div>
+
+                <div class="app-card">
+                    <div class="card-img">🏭</div>
+                    <div class="card-body">
+                        <h4>环境监控系统原型</h4>
+                        <p>适用于环境监测系统原型开发：温度越限告警、自动通风控制、光照自动补偿。可作为智能农业、仓储管理等场景的技术验证平台。</p>
+                    </div>
+                </div>
+
+                <div class="app-card">
+                    <div class="card-img">🔌</div>
+                    <div class="card-body">
+                        <h4>物联网通信实验</h4>
+                        <p>基于 MQTT 协议的端云通信实验平台。支持串口命令行配置 MQTT 参数，体验完整的物联网数据采集 → 上传 → 远程控制闭环流程。</p>
+                    </div>
+                </div>
+
+                <div class="app-card">
+                    <div class="card-img">💻</div>
+                    <div class="card-body">
+                        <h4>嵌入式软件开发实训</h4>
+                        <p>四层架构的嵌入式 C 项目范本，涵盖驱动开发、通信协议实现、业务逻辑编排。适合嵌入式软件工程实训课程。</p>
+                    </div>
+                </div>
+
+                <div class="app-card">
+                    <div class="card-img">🎓</div>
+                    <div class="card-body">
+                        <h4>毕业设计 / 课程项目</h4>
+                        <p>提供完整的硬件原理和软件源码，可在此基础上进行功能扩展：如增加更多传感器、接入云平台、数据可视化仪表板开发等。</p>
+                    </div>
+                </div>
+
+                <div class="app-card">
+                    <div class="card-img">⚙️</div>
+                    <div class="card-body">
+                        <h4>自动化控制演示</h4>
+                        <p>演示自动控制逻辑——光照低于阈值自动开灯、温度超限自动启动风扇。手动模式可独立控制每路继电器，展示工业控制基本逻辑。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Workflow -->
+        <section id="workflow">
+            <h2>2. 实训操作流程</h2>
+            <p>一次完整的实训流程通常包含以下步骤：</p>
+
+            <ol class="flow-list">
+                <li>
+                    <strong>上电准备</strong> — 连接 5V 电源，串口线接至 PC，打开串口终端（115200 baud）。等待系统初始化完成，OLED 显示初始状态。
+                </li>
+                <li>
+                    <strong>WiFi 配网</strong> — 使用 <code>wifi scan</code> 扫描可用网络，<code>wifi conn n password</code> 连接。连接成功后指示灯从红绿交替变为其他状态。
+                </li>
+                <li>
+                    <strong>配置 MQTT</strong> — 通过 <code>mqtt set ip=服务器IP</code>、<code>mqtt set user=用户名</code>、<code>mqtt set pass=密码</code> 配置 MQTT 参数，配置自动持久化至 NVS。
+                </li>
+                <li>
+                    <strong>闭合总闸</strong> — 按下 KEY1 闭合总闸，装置进入默认自动模式。此时 LDR 检测光照、DS18B20 检测温度，系统根据阈值自动控制继电器。
+                </li>
+                <li>
+                    <strong>模式切换</strong> — 短按 KEY2 在手动模式中循环继电器状态（00→01→10→11），长按 KEY2 切换自动/手动模式。
+                </li>
+                <li>
+                    <strong>远程监控</strong> — 使用 MQTT 客户端订阅状态主题，实时查看设备数据；发送控制命令远程操作继电器。
+                </li>
+            </ol>
+        </section>
+
+        <!-- Section 3: Quick Start -->
+        <section id="setup">
+            <h2>3. 快速上手指南</h2>
+
+            <h3>首次使用配置流程</h3>
+
+            <div class="svg-container">
+                <svg width="580" height="260" viewBox="0 0 580 260" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Flow chart -->
+                    <rect x="190" y="10" width="200" height="36" rx="18" fill="#075985"/>
+                    <text x="268" y="34" font-size="13" font-weight="600" fill="#fff" font-family="system-ui" text-anchor="middle">接电开机</text>
+
+                    <line x1="290" y1="46" x2="290" y2="66" stroke="#475569" stroke-width="2"/>
+                    <polyline points="285,60 290,70 295,60" fill="none" stroke="#475569" stroke-width="2"/>
+
+                    <rect x="160" y="70" width="260" height="36" rx="6" fill="#0ea5e9"/>
+                    <text x="290" y="94" font-size="13" font-weight="600" fill="#fff" font-family="system-ui" text-anchor="middle">wifi scan → wifi conn &lt;n&gt; &lt;pwd&gt;</text>
+
+                    <line x1="290" y1="106" x2="290" y2="126" stroke="#475569" stroke-width="2"/>
+                    <polyline points="285,120 290,130 295,120" fill="none" stroke="#475569" stroke-width="2"/>
+
+                    <rect x="140" y="130" width="300" height="36" rx="6" fill="#0ea5e9"/>
+                    <text x="290" y="154" font-size="13" font-weight="600" fill="#fff" font-family="system-ui" text-anchor="middle">mqtt set ip=... port=... user=... pass=...</text>
+
+                    <line x1="290" y1="166" x2="290" y2="186" stroke="#475569" stroke-width="2"/>
+                    <polyline points="285,180 290,190 295,180" fill="none" stroke="#475569" stroke-width="2"/>
+
+                    <rect x="190" y="190" width="200" height="36" rx="18" fill="#0369a1"/>
+                    <text x="290" y="214" font-size="13" font-weight="600" fill="#fff" font-family="system-ui" text-anchor="middle">按压 KEY1 闭合总闸</text>
+
+                    <line x1="290" y1="226" x2="290" y2="246" stroke="#475569" stroke-width="2"/>
+                    <polyline points="285,240 290,250 295,240" fill="none" stroke="#475569" stroke-width="2"/>
+
+                    <rect x="170" y="220" width="240" height="36" rx="18" fill="#15803d"/>
+                    <text x="290" y="244" font-size="13" font-weight="600" fill="#fff" font-family="system-ui" text-anchor="middle">✅ 自动控制运行中</text>
+                </svg>
+            </div>
+
+            <h3>硬件连接检查清单</h3>
+            <ul class="check-list">
+                <li>DS18B20 传感器连接至 GPIO 10（注意数据线不要接反）</li>
+                <li>LDR 光敏电阻连接至 GPIO 1（模拟输入）</li>
+                <li>OLED 显示屏 I2C 连接至 GPIO 4 (SDA) / GPIO 5 (SCL)</li>
+                <li>WS2812 RGB LED 连接至 GPIO 0</li>
+                <li>继电器模块信号线连接至 GPIO 6 (LED) / GPIO 7 (FAN)</li>
+                <li>按键连接至 GPIO 20 (KEY1) / GPIO 21 (KEY2)</li>
+            </ul>
+        </section>
+
+        <!-- Section 4: Commands -->
+        <section id="commands">
+            <h2>4. 串口命令速查</h2>
+            <table class="spec-table">
+                <tr><th>命令</th><th>说明</th></tr>
+                <tr><td><code>help</code></td><td>显示全部命令列表</td></tr>
+                <tr><td><code>get status</code></td><td>查看当前全部系统参数</td></tr>
+                <tr><td><code>set temp=30.0</code></td><td>设置温度阈值（°C）</td></tr>
+                <tr><td><code>set light=300</code></td><td>设置光照阈值（ADC 值）</td></tr>
+                <tr><td><code>set mode=auto</code></td><td>切换为自动模式</td></tr>
+                <tr><td><code>set mode=manual</code></td><td>切换为手动模式</td></tr>
+                <tr><td><code>mqtt status</code></td><td>查看 MQTT 连接状态与当前配置</td></tr>
+                <tr><td><code>mqtt reconnect</code></td><td>强制重新连接 MQTT</td></tr>
+                <tr><td><code>wifi status</code></td><td>查看 WiFi 连接信息</td></tr>
+                <tr><td><code>wifi forget</code></td><td>清除保存的 WiFi 凭据</td></tr>
+            </table>
+        </section>
+
+        <!-- Section 5: MQTT -->
+        <section id="mqtt">
+            <h2>5. MQTT 远程控制</h2>
+
+            <h3>命令格式</h3>
+            <p>向 <code>chemctrl/{device_id}/command</code> 发布 JSON 指令：</p>
+            <table class="spec-table">
+                <tr><th>命令</th><th>JSON 示例</th><th>说明</th></tr>
+                <tr>
+                    <td>set_relay</td>
+                    <td><code>{"cmd":"set_relay","id":3,"on":true}</td>
+                    <td>id=3 为 LED，id=4 为 FAN</td>
+                </tr>
+                <tr>
+                    <td>set_mode</td>
+                    <td><code>{"cmd":"set_mode","mode":"auto"}</td>
+                    <td>auto 或 manual</td>
+                </tr>
+                <tr>
+                    <td>set_threshold</td>
+                    <td><code>{"cmd":"set_threshold","type":"temp","val":32.0}</td>
+                    <td>type: temp 或 light</td>
+                </tr>
+                <tr>
+                    <td>get_status</td>
+                    <td><code>{"cmd":"get_status"}</td>
+                    <td>触发设备上报完整状态</td>
+                </tr>
+                <tr>
+                    <td>reboot</td>
+                    <td><code>{"cmd":"reboot"}</td>
+                    <td>远程重启设备</td>
+                </tr>
+            </table>
+
+            <h3>状态上报示例</h3>
+            <p>设备在状态变化时自动发布到 <code>chemctrl/{device_id}/status</code>：</p>
+            <div class="callout">
+                <code style="font-size:13px;">
+{<br>
+&nbsp;&nbsp;"power": true,<br>
+&nbsp;&nbsp;"mode": "auto",<br>
+&nbsp;&nbsp;"temp_val": 26.5,<br>
+&nbsp;&nbsp;"temp_th": 30.0,<br>
+&nbsp;&nbsp;"lux_val": 450,<br>
+&nbsp;&nbsp;"lux_th": 300,<br>
+&nbsp;&nbsp;"led_relay": true,<br>
+&nbsp;&nbsp;"fan_relay": false<br>
+}
+                </code>
+            </div>
+        </section>
+
+        <!-- Section 6: Development -->
+        <section id="dev">
+            <h2>6. 二次开发指南</h2>
+
+            <h3>开发环境搭建</h3>
+            <ol class="flow-list">
+                <li>
+                    <strong>安装 Arduino CLI</strong> — 从 arduino.cc 下载安装或使用包管理器安装 <code>arduino-cli</code>。
+                </li>
+                <li>
+                    <strong>安装 ESP32 核心</strong> — 运行 <code>arduino-cli core install esp32:esp32</code> 安装 ESP32-C3 支持。
+                </li>
+                <li>
+                    <strong>安装所需库</strong> — 通过 Library Manager 安装 ArduinoJson、U8g2、PubSubClient、Adafruit NeoPixel、DS18B20 by matmunk。
+                </li>
+                <li>
+                    <strong>编译烧录</strong> — 使用 <code>arduino-cli compile --fqbn esp32:esp32:esp32c3 --upload -p /dev/ttyACM0 PCT_100.ino</code> 编译并上传。
+                </li>
+                <li>
+                    <strong>架构原则</strong> — 保持四层单向依赖：驱动不引用业务、业务不引用编排。新增模块遵循 xxx_init / xxx_loop 模式。
+                </li>
+            </ol>
+
+            <h3>扩展方向参考</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon">➕</div>
+                    <h4>增加传感器</h4>
+                    <p>新建驱动文件 → 在业务模块增加控制逻辑 → 注册到编排层。三文件完成，不改现有代码。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">☁️</div>
+                    <h4>云平台对接</h4>
+                    <p>当前已支持 MQTT，可直接对接阿里云 IoT / 腾讯云 IoT / AWS IoT 等主流云平台。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">📊</div>
+                    <h4>数据可视化</h4>
+                    <p>通过 MQTT 数据上报 → 后端存储 → Web 仪表板展示。可结合 Node-RED / Grafana 快速实现。</p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>© 2026 化工控制实训装置 PCT-100 V1.5 · 应用场景与操作指南</p>
+        </footer>
+
+    </main>
+</div>
+
+<script src="js/scroll-spy.js"></script>
+</body>
+</html>

@@ -15,10 +15,13 @@ static char _topic_publish[64];
 static char _topic_subscribe[64];
 
 // ==================== 默认配置（NVS 为空时的回退值） ====================
-#define DFLT_SERVER   "47.98.170.180"
-#define DFLT_PORT     8081
-#define DFLT_USER     "dzdx_emqx"
-#define DFLT_PASSWORD "Jp4!sQ7$"
+// 警告：此处不可填写真实凭据，否则 push 到 GitHub 会泄露。
+// 首次烧录后通过串口命令 "mqtt set <key>=<value>" 配置，
+// 设置的值会自动持久化到 NVS，不受源码更新影响。
+#define DFLT_SERVER   ""
+#define DFLT_PORT     0
+#define DFLT_USER     ""
+#define DFLT_PASSWORD ""
 
 // ==================== 内部函数声明 ====================
 static void build_topics(void);

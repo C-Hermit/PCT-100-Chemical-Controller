@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCT-100 化工控制实训装置 — 产品说明书</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ==================== Top Navigation ==================== -->
+<nav class="top-nav">
+    <a href="index.html" class="logo">PCT-100 <span>产品手册</span></a>
+    <ul class="nav-links">
+        <li><a href="index.html" class="active">产品说明书</a></li>
+        <li><a href="specs.html">技术规格</a></li>
+        <li><a href="usage.html">应用场景</a></li>
+    </ul>
+</nav>
+
+<!-- ==================== Layout Wrapper ==================== -->
+<div class="wrapper">
+
+    <!-- ==================== Sidebar ==================== -->
+    <aside class="sidebar">
+        <div class="sidebar-title">目录导航</div>
+        <ul class="sidebar-nav">
+            <li><a href="#overview" class="active"><span class="num">1</span>产品总览</a></li>
+            <li><a href="#architecture"><span class="num">2</span>系统架构</a></li>
+            <li><a href="#features"><span class="num">3</span>核心功能</a></li>
+            <li><a href="#specs"><span class="num">4</span>硬件规格</a></li>
+            <li><a href="#pins"><span class="num">5</span>接口定义</a></li>
+            <li><a href="#network"><span class="num">6</span>通信协议</a></li>
+            <li><a href="#indicator"><span class="num">7</span>状态指示</a></li>
+        </ul>
+    </aside>
+
+    <!-- ==================== Main Content ==================== -->
+    <main class="main-content">
+
+        <!-- Hero -->
+        <div class="hero">
+            <div>
+                <span class="badge">V1.5</span>
+                <span class="badge" style="background:#dcfce7;color:#15803d;">ESP32-C3</span>
+            </div>
+            <h1>化工控制实训装置<br>产品说明书</h1>
+            <p class="subtitle">智能环境控制器 — 温度监测 · 光照传感 · 继电器控制 · MQTT 物联</p>
+
+            <div class="product-img">
+                <svg width="400" height="160" viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="20" y="20" width="360" height="120" rx="12" fill="#e0f2fe" stroke="#0369a1" stroke-width="2"/>
+                    <text x="60" y="55" font-size="11" fill="#475569" font-family="system-ui">🌡️ DS18B20</text>
+                    <text x="60" y="78" font-size="11" fill="#475569" font-family="system-ui">☀️ LDR 传感器</text>
+                    <text x="60" y="101" font-size="11" fill="#475569" font-family="system-ui">💡 继电器 LED</text>
+                    <text x="60" y="124" font-size="11" fill="#475569" font-family="system-ui">🌀 继电器风扇</text>
+
+                    <rect x="210" y="30" width="155" height="100" rx="8" fill="#075985" stroke="#0369a1" stroke-width="1.5"/>
+                    <text x="230" y="55" font-size="13" font-weight="700" fill="#fff" font-family="system-ui">PCT-100</text>
+                    <text x="230" y="73" font-size="10" fill="#7dd3fc" font-family="system-ui">ESP32-C3</text>
+                    <text x="230" y="90" font-size="10" fill="#7dd3fc" font-family="system-ui">OLED · WiFi · MQTT</text>
+                    <text x="230" y="107" font-size="10" fill="#7dd3fc" font-family="system-ui">WS2812 · 串口</text>
+
+                    <line x1="190" y1="45" x2="210" y2="50" stroke="#0369a1" stroke-width="1.5"/>
+                    <line x1="190" y1="75" x2="210" y2="80" stroke="#0369a1" stroke-width="1.5"/>
+                    <line x1="190" y1="105" x2="210" y2="110" stroke="#0369a1" stroke-width="1.5"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Section 1: 产品总览 -->
+        <section id="overview">
+            <h2>1. 产品总览</h2>
+            <p>PCT-100 智能环境控制器是基于 ESP32-C3 微控制器设计的嵌入式实训装置，适用于化工控制实训场景。装置集成温度采集（DS18B20）、光照强度检测（LDR）、双通道继电器控制以及 MQTT 远程通信能力，可作为传感器数据采集与执行控制的实训教学平台。</p>
+
+            <h3>核心亮点</h3>
+            <ul class="check-list">
+                <li>四层软件架构（驱动 → 传输 → 业务 → 编排），模块间单向依赖，代码可维护性高</li>
+                <li>支持 WiFi 无线联网与 MQTT 远程控制，实现物联网数据交互</li>
+                <li>0.96 寸 OLED 显示屏实时显示温度、光照、继电器状态</li>
+                <li>WS2812 多彩指示灯提供 6 种优先级动画状态反馈</li>
+                <li>Async WiFi 配网 + 串口命令行调试，无需额外编程器</li>
+                <li>基于 FreeRTOS 多任务调度，各模块独立运行互不阻塞</li>
+            </ul>
+        </section>
+
+        <!-- Section 2: 系统架构 -->
+        <section id="architecture">
+            <h2>2. 系统架构</h2>
+            <p>软件采用严格的四层单向依赖架构，下层不知道上层的存在，确保修改的可预测性。</p>
+
+            <div class="arch-diagram">
+                <div class="arch-layer l4">编排层 · PCT_100.ino / scheduler / device</div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer l3">业务层 · controller / mqtt_handler / ws2812_indicator</div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer l2">传输层 · wifi_drv / mqtt_client_drv / serial_cmd</div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer l1">驱动层 · key / relay / ldr / ds18b20 / oled_ui / ws2812_drv</div>
+            </div>
+
+            <p style="font-size:13px;color:var(--text-secondary);text-align:center;">各层之间仅向下依赖，全局状态通过 SystemState 结构体共享</p>
+
+            <h3>调度模型</h3>
+            <div class="svg-container">
+                <svg width="600" height="220" viewBox="0 0 600 220" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="10" y="10" width="580" height="48" rx="6" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+                    <text x="26" y="40" font-size="14" font-weight="700" fill="#075985" font-family="system-ui">FreeRTOS 多任务调度器</text>
+                    <text x="380" y="40" font-size="11" fill="#475569" font-family="system-ui">ESP32-C3 · 400KB SRAM · 160MHz</text>
+
+                    <!-- Task boxes -->
+                    <rect x="30" y="75" width="120" height="38" rx="4" fill="#075985"/>
+                    <text x="42" y="99" font-size="11" fill="#fff" font-family="system-ui">🔑 按键扫描 (20ms)</text>
+
+                    <rect x="165" y="75" width="130" height="38" rx="4" fill="#2563eb"/>
+                    <text x="177" y="99" font-size="11" fill="#fff" font-family="system-ui">🌡️ 温度采样 (2s)</text>
+
+                    <rect x="310" y="75" width="130" height="38" rx="4" fill="#0ea5e9"/>
+                    <text x="322" y="99" font-size="11" fill="#fff" font-family="system-ui">☀️ 光照采样 (50ms)</text>
+
+                    <rect x="30" y="125" width="130" height="38" rx="4" fill="#1e3a5f"/>
+                    <text x="42" y="149" font-size="11" fill="#fff" font-family="system-ui">🌐 WiFi / MQTT</text>
+
+                    <rect x="175" y="125" width="130" height="38" rx="4" fill="#7dd3fc"/>
+                    <text x="187" y="144" font-size="11" fill="#0f172a" font-family="system-ui">🎨 WS2812 指示灯</text>
+                    <text x="187" y="156" font-size="10" fill="#0f172a" font-family="system-ui">(20ms 动画)</text>
+
+                    <rect x="320" y="125" width="130" height="38" rx="4" fill="#38bdf8"/>
+                    <text x="332" y="144" font-size="11" fill="#0f172a" font-family="system-ui">🖥️ OLED 显示</text>
+                    <text x="332" y="156" font-size="10" fill="#0f172a" font-family="system-ui">(3s / 事件驱动)</text>
+                </svg>
+            </div>
+        </section>
+
+        <!-- Section 3: 核心功能 -->
+        <section id="features">
+            <h2>3. 核心功能</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon">🌡️</div>
+                    <h4>温度监测</h4>
+                    <p>DS18B20 数字温度传感器，精度 ±0.5°C，测量范围 -55°C ~ +125°C。阈值可配置，超限自动启动风扇。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">☀️</div>
+                    <h4>光照检测</h4>
+                    <p>光敏电阻（LDR）模拟采样，阈值可设，低于设定值自动开启 LED 补光照明。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">💡</div>
+                    <h4>双路继电器</h4>
+                    <p>独立控制 LED 灯与风扇两路 220V 设备。支持自动/手动两种工作模式，手动模式支持 00→01→10→11 编码循环。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">📡</div>
+                    <h4>MQTT 物联</h4>
+                    <p>支持远程状态查询与控制。发布 chemctrl/{id}/status，订阅 chemctrl/{id}/command。配置持久化至 NVS。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🖥️</div>
+                    <h4>OLED 显示</h4>
+                    <p>0.96 寸 128×64 单色 OLED，I2C 接口，实时显示温度、光照、继电器及模式状态。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🎨</div>
+                    <h4>WS2812 指示灯</h4>
+                    <p>6 级优先级动画指示系统状态：WiFi 连接、MQTT 状态、继电器工作模式。20ms 刷新实现平滑渐变。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: 硬件规格 -->
+        <section id="specs">
+            <h2>4. 硬件规格</h2>
+            <table class="spec-table">
+                <tr><th>主控芯片</th><td>ESP32-C3 RISC-V 单核处理器，160MHz</td></tr>
+                <tr><th>温度传感器</th><td>DS18B20 数字式，1-Wire 接口，精度 ±0.5°C</td></tr>
+                <tr><th>光照传感器</th><td>光敏电阻（LDR），模拟电压输出</td></tr>
+                <tr><th>继电器输出</th><td>2 路，5V 有源高电平驱动，250V/10A</td></tr>
+                <tr><th>显示屏</th><td>0.96" OLED 128×64，I2C（地址 0x3C）</td></tr>
+                <tr><th>状态指示灯</th><td>WS2812 RGB LED</td></tr>
+                <tr><th>按键输入</th><td>2 个轻触按键（总闸 + 模式/循环）</td></tr>
+                <tr><th>通信接口</th><td>UART (115200 baud) / WiFi 2.4GHz IEEE 802.11 b/g/n</td></tr>
+                <tr><th>电源</th><td>5V DC（USB 或端子供电）</td></tr>
+            </table>
+        </section>
+
+        <!-- Section 5: 接口定义 -->
+        <section id="pins">
+            <h2>5. 引脚接口定义</h2>
+            <div class="pin-grid">
+                <div class="pin-item"><span class="pin-num">0</span><div><div class="pin-label">WS2812</div><div class="pin-desc">NeoPixel 数据</div></div></div>
+                <div class="pin-item"><span class="pin-num">1</span><div><div class="pin-label">LDR</div><div class="pin-desc">光照模拟输入</div></div></div>
+                <div class="pin-item"><span class="pin-num">4</span><div><div class="pin-label">OLED SDA</div><div class="pin-desc">I2C 数据</div></div></div>
+                <div class="pin-item"><span class="pin-num">5</span><div><div class="pin-label">OLED SCL</div><div class="pin-desc">I2C 时钟</div></div></div>
+                <div class="pin-item"><span class="pin-num">6</span><div><div class="pin-label">Relay LED</div><div class="pin-desc">灯光继电器</div></div></div>
+                <div class="pin-item"><span class="pin-num">7</span><div><div class="pin-label">Relay FAN</div><div class="pin-desc">风扇继电器</div></div></div>
+                <div class="pin-item"><span class="pin-num">10</span><div><div class="pin-label">DS18B20</div><div class="pin-desc">1-Wire 数据</div></div></div>
+                <div class="pin-item"><span class="pin-num">20</span><div><div class="pin-label">KEY1</div><div class="pin-desc">总闸开关（接）</div></div></div>
+                <div class="pin-item"><span class="pin-num">21</span><div><div class="pin-label">KEY2</div><div class="pin-desc">模式切换（短/长按）</div></div></div>
+            </div>
+        </section>
+
+        <!-- Section 6: 通信 -->
+        <section id="network">
+            <h2>6. 通信协议与串口命令</h2>
+
+            <h3>MQTT 协议</h3>
+            <table class="spec-table">
+                <tr><th>发布主题</th><td>chemctrl/{device_id}/status</td></tr>
+                <tr><th>订阅主题</th><td>chemctrl/{device_id}/command</td></tr>
+                <tr><th>状态推送机制</th><td>事件驱动（状态变化时自动推送 JSON）</td></tr>
+                <tr><th>支持命令</th><td>set_relay / set_mode / set_threshold / get_status / reboot</td></tr>
+            </table>
+
+            <h3>串口命令 (115200 baud)</h3>
+            <table class="spec-table">
+                <tr><th>命令</th><th>说明</th></tr>
+                <tr><td>wifi scan / list / conn</td><td>WiFi 扫描与配网</td></tr>
+                <tr><td>wifi status / forget</td><td>连接状态查询 / 清除凭据</td></tr>
+                <tr><td>mqtt status</td><td>查看 MQTT 连接及配置</td></tr>
+                <tr><td>mqtt set key=val</td><td>在线修改 MQTT 配置（持久化 NVS）</td></tr>
+                <tr><td>mqtt reconnect</td><td>手动触发 MQTT 重连</td></tr>
+                <tr><td>set temp/light=val</td><td>修改控制阈值</td></tr>
+                <tr><td>set mode=auto/manual</td><td>切换工作模式</td></tr>
+                <tr><td>get status</td><td>查看全部系统参数</td></tr>
+            </table>
+        </section>
+
+        <!-- Section 7: 状态指示 -->
+        <section id="indicator">
+            <h2>7. WS2812 状态指示说明</h2>
+            <p>RGB 指示灯通过 6 级优先级动画反馈系统运行状态，优先级从高到低排列：</p>
+            <div class="feature-grid">
+                <div class="feature-card" style="border-left: 4px solid #ef4444;">
+                    <h4>1 — WiFi 断连</h4>
+                    <p>红 200ms → 绿 200ms → 灭 500ms 循环</p>
+                </div>
+                <div class="feature-card" style="border-left: 4px solid #f59e0b;">
+                    <h4>2 — MQTT 断连</h4>
+                    <p>红 → 渐绿 500ms → 渐灭 → 渐蓝 500ms → 渐灭 循环</p>
+                </div>
+                <div class="feature-card" style="border-left: 4px solid #8b5cf6;">
+                    <h4>3 — 双继电器开启</h4>
+                    <p>RGB 交替闪烁 (RGB / 灭 各 50ms)</p>
+                </div>
+                <div class="feature-card" style="border-left: 4px solid #3b82f6;">
+                    <h4>4 — 仅 LED 开启</h4>
+                    <p>R 300ms → 灭 200ms → G 300ms → 灭 200ms → B 300ms → 灭 200ms</p>
+                </div>
+                <div class="feature-card" style="border-left: 4px solid #10b981;">
+                    <h4>5 — 仅风扇开启</h4>
+                    <p>R 500ms → G 500ms → B 500ms → 灭 700ms</p>
+                </div>
+                <div class="feature-card" style="border-left: 4px solid #6366f1;">
+                    <h4>6 — 全部正常</h4>
+                    <p>灭 → 渐红 1s → 渐绿 1s → 渐蓝 1s → 渐灭 1s → 灭 200ms</p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>© 2026 化工控制实训装置 PCT-100 V1.5 · 产品说明书</p>
+        </footer>
+
+    </main>
+</div>
+
+<script src="js/scroll-spy.js"></script>
+</body>
+</html>

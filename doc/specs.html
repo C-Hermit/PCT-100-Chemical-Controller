@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>技术规格 — PCT-100 化工控制实训装置</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ==================== Top Navigation ==================== -->
+<nav class="top-nav">
+    <a href="index.html" class="logo">PCT-100 <span>产品手册</span></a>
+    <ul class="nav-links">
+        <li><a href="index.html">产品说明书</a></li>
+        <li><a href="specs.html" class="active">技术规格</a></li>
+        <li><a href="usage.html">应用场景</a></li>
+    </ul>
+</nav>
+
+<!-- ==================== Layout Wrapper ==================== -->
+<div class="wrapper">
+
+    <!-- ==================== Sidebar ==================== -->
+    <aside class="sidebar">
+        <div class="sidebar-title">目录导航</div>
+        <ul class="sidebar-nav">
+            <li><a href="#mcu"><span class="num">1</span>主控参数</a></li>
+            <li><a href="#sensors"><span class="num">2</span>传感器规格</a></li>
+            <li><a href="#electrical"><span class="num">3</span>电气特性</a></li>
+            <li><a href="#protocols"><span class="num">4</span>通信协议</a></li>
+            <li><a href="#software"><span class="num">5</span>软件架构</a></li>
+            <li><a href="#timing"><span class="num">6</span>时序参数</a></li>
+            <li><a href="#env"><span class="num">7</span>环境要求</a></li>
+        </ul>
+    </aside>
+
+    <!-- ==================== Main Content ==================== -->
+    <main class="main-content">
+
+        <div class="hero">
+            <div><span class="badge">技术文档</span></div>
+            <h1>技术规格与参数</h1>
+            <p class="subtitle">PCT-100 详细硬件参数、电气特性及软件架构说明</p>
+        </div>
+
+        <!-- Section 1: MCU -->
+        <section id="mcu">
+            <h2>1. 主控芯片参数</h2>
+            <table class="spec-table">
+                <tr><th>型号</th><td>ESP32-C3 (ESP32-C3FH4)</td></tr>
+                <tr><th>核心架构</th><td>RISC-V 32-bit 单核</td></tr>
+                <tr><th>主频</th><td>最高 160 MHz</td></tr>
+                <tr><th>SRAM</th><td>400 KB</td></tr>
+                <tr><th>Flash</th><td>4 MB (Quad SPI)</td></tr>
+                <tr><th>WiFi</th><td>802.11 b/g/n (2.4 GHz), HT20/HT40</td></tr>
+                <tr><th>蓝牙</th><td>Bluetooth 5.0 LE</td></tr>
+                <tr><th>ADC</th><td>2 × 12-bit SAR ADC, 最高 100ksps</td></tr>
+                <tr><th>GPIO</th><td>22 个可编程 IO</td></tr>
+                <tr><th>工作电压</th><td>3.0V ~ 3.6V (板载 3.3V LDO)</td></tr>
+            </table>
+        </section>
+
+        <!-- Section 2: Sensors -->
+        <section id="sensors">
+            <h2>2. 传感器规格</h2>
+
+            <h3>DS18B20 数字温度传感器</h3>
+            <table class="spec-table">
+                <tr><th>接口</th><td>1-Wire（单总线）</td></tr>
+                <tr><th>测量范围</th><td>-55°C ~ +125°C</td></tr>
+                <tr><th>精度</th><td>±0.5°C（-10°C ~ +85°C）</td></tr>
+                <tr><th>分辨率</th><td>9 ~ 12 bit（可配置，默认 12 bit）</td></tr>
+                <tr><th>转换时间</th><td>750ms (12 bit 模式)</td></tr>
+                <tr><th>供电</th><td>3.0V ~ 5.5V（寄生/外部供电）</td></tr>
+            </table>
+
+            <h3>LDR 光敏电阻</h3>
+            <table class="spec-table">
+                <tr><th>接口</th><td>模拟电压输出 (ADC 采样)</td></tr>
+                <tr><th>采样电路</th><td>10kΩ 上拉分压</td></tr>
+                <tr><th>ADC 分辨率</th><td>12 bit (0 ~ 4095)</td></tr>
+                <tr><th>响应时间</th><td>约 20ms</td></tr>
+            </table>
+        </section>
+
+        <!-- Section 3: Electrical -->
+        <section id="electrical">
+            <h2>3. 电气特性</h2>
+            <table class="spec-table">
+                <tr><th>供电电压</th><td>5V DC（USB Type-C 或接线端子）</td></tr>
+                <tr><th>最大功耗</th><td>约 500mA (含继电器驱动)</td></tr>
+                <tr><th>继电器触点额定</th><td>250V AC / 10A (阻性负载)</td></tr>
+                <tr><th>继电器驱动方式</th><td>有源高电平 (GPIO 6 / 7)</td></tr>
+                <tr><th>OLED 供电</th><td>3.3V (板载 LDO)</td></tr>
+                <tr><th>WS2812 供电</th><td>3.3V (板载 LDO)</td></tr>
+                <tr><th>按键电平</th><td>低电平有效 (内部上拉)</td></tr>
+            </table>
+
+            <div class="callout">
+                <strong>供电建议：</strong>当两路继电器同时驱动大负载时，建议使用 5V / 2A 以上电源适配器供电，避免 USB 端口供电不足导致系统不稳定。
+            </div>
+        </section>
+
+        <!-- Section 4: Protocols -->
+        <section id="protocols">
+            <h2>4. 通信协议栈</h2>
+
+            <div class="svg-container">
+                <svg width="560" height="200" viewBox="0 0 560 200" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Physical layer -->
+                    <rect x="20" y="140" width="520" height="40" rx="6" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+                    <text x="180" y="166" font-size="13" font-weight="600" fill="#075985" font-family="system-ui">物理层：UART (115200) / WiFi 2.4GHz / I2C (400kHz) / 1-Wire</text>
+
+                    <!-- Transport -->
+                    <rect x="20" y="90" width="520" height="40" rx="6" fill="#7dd3fc" stroke="#0ea5e9" stroke-width="1.5"/>
+                    <text x="100" y="116" font-size="13" font-weight="600" fill="#0f172a" font-family="system-ui">传输层：TCP/IP · WiFi Station Mode · MQTT 3.1.1 (QoS 0)</text>
+
+                    <!-- Application -->
+                    <rect x="20" y="40" width="520" height="40" rx="6" fill="#075985" stroke="#0369a1" stroke-width="1.5"/>
+                    <text x="70" y="66" font-size="13" font-weight="600" fill="#fff" font-family="system-ui">应用层：JSON 状态上报 · 串口命令解析 · MQTT 远程指令 · OLED 渲染</text>
+
+                    <!-- Arrows -->
+                    <polyline points="280,80 280,90" fill="none" stroke="#475569" stroke-width="2"/>
+                    <polyline points="280,130 280,140" fill="none" stroke="#475569" stroke-width="2"/>
+                </svg>
+            </div>
+
+            <h3>MQTT 数据格式</h3>
+            <p>状态上报 JSON 示例：</p>
+            <div class="callout">
+                <code style="font-size:13px;">
+{<br>
+&nbsp;&nbsp;"power": true,<br>
+&nbsp;&nbsp;"mode": "auto",<br>
+&nbsp;&nbsp;"temp": 26.5,<br>
+&nbsp;&nbsp;"lux": 450,<br>
+&nbsp;&nbsp;"led_relay": true,<br>
+&nbsp;&nbsp;"fan_relay": false<br>
+}
+                </code>
+            </div>
+        </section>
+
+        <!-- Section 5: Software -->
+        <section id="software">
+            <h2>5. 软件架构</h2>
+            <p>基于 Arduino 框架 + ESP32 Arduino Core，软件分为四层：</p>
+
+            <div class="tech-stack">
+                <span class="tech-tag">ArduinoJson</span>
+                <span class="tech-tag">PubSubClient</span>
+                <span class="tech-tag">U8g2 (OLED)</span>
+                <span class="tech-tag">Adafruit NeoPixel</span>
+                <span class="tech-tag">DS18B20 by matmunk</span>
+                <span class="tech-tag">FreeRTOS</span>
+                <span class="tech-tag">Preferences (NVS)</span>
+            </div>
+
+            <h3>文件结构</h3>
+            <table class="spec-table">
+                <tr><th>层级</th><th>模块文件</th><th>职责</th></tr>
+                <tr><td>编排层</td><td>PCT_100.ino, scheduler, device.h</td><td>初始化顺序、任务注册、loop 轮询</td></tr>
+                <tr><td>业务层</td><td>controller, mqtt_handler, ws2812_indicator</td><td>控制策略、阈值判断、状态通知</td></tr>
+                <tr><td>传输层</td><td>wifi_drv, mqtt_client_drv, serial_cmd</td><td>网络通信、串口命令解析</td></tr>
+                <tr><td>驱动层</td><td>key, relay, ldr, ds18b20_drv, oled_ui, ws2812_drv</td><td>硬件寄存器操作、传感器协议</td></tr>
+            </table>
+        </section>
+
+        <!-- Section 6: Timing -->
+        <section id="timing">
+            <h2>6. 时序参数</h2>
+            <table class="spec-table">
+                <tr><th>按键去抖时间</th><td>20ms（状态机采样周期）</td></tr>
+                <tr><th>光照采样周期</th><td>50ms</td></tr>
+                <tr><th>温度采样周期</th><td>2000ms（DS18B20 转换时间 750ms）</td></tr>
+                <tr><th>WS2812 刷新率</th><td>50 fps（20ms 周期）</td></tr>
+                <tr><th>OLED 刷新周期</th><td>3000ms（事件驱动可立即刷新）</td></tr>
+                <tr><th>MQTT 重连间隔</th><td>5000ms（带指数退避）</td></tr>
+                <tr><th>WiFi 重连间隔</th><td>渐进式，最小 1000ms</td></tr>
+                <tr><th>串口波特率</th><td>115200 baud</td></tr>
+            </table>
+        </section>
+
+        <!-- Section 7: Environment -->
+        <section id="env">
+            <h2>7. 环境要求</h2>
+            <table class="spec-table">
+                <tr><th>工作温度</th><td>-10°C ~ +60°C</td></tr>
+                <tr><th>存储温度</th><td>-20°C ~ +85°C</td></tr>
+                <tr><th>工作湿度</th><td>10% ~ 90% RH（无凝露）</td></tr>
+                <tr><th>防护等级</th><td>IP20（室内使用）</td></tr>
+                <tr><th>安装方式</th><td>导轨安装 / 桌面放置</td></tr>
+            </table>
+
+            <div class="callout">
+                <strong>注意：</strong>本装置为实训教学设备，请在教师指导下操作。继电器输出端涉及 220V 高压，接线前务必确认断电。
+            </div>
+        </section>
+
+        <footer>
+            <p>© 2026 化工控制实训装置 PCT-100 V1.5 · 技术规格</p>
+        </footer>
+
+    </main>
+</div>
+
+<script src="js/scroll-spy.js"></script>
+</body>
+</html>

@@ -80,13 +80,13 @@ void setup() {
     mqtt_handler_init();
     ws2812_indicator_init();
 
-    // ── 编排层：注册定时任务 ──
+    // ── 编排层：注册定时任务（含 FreeRTOS 任务栈大小）──
     sched_init();
-    sched_add(task_key_logic,    20);
-    sched_add(task_ldr_sense,    50);
-    sched_add(task_temp_sense,   2000);
-    oled_task_id = sched_add(task_oled_refresh, 3000);
-    sched_add(ws2812_indicator_loop, 20);
+    sched_add(task_key_logic,         20,   2048);  // 按键状态机，栈需求小
+    sched_add(task_ldr_sense,         50,   2048);  // 光照采样，栈需求小
+    sched_add(task_temp_sense,        2000, 4096);  // DS18B20 1-Wire 协议，栈需求较大
+    oled_task_id = sched_add(task_oled_refresh, 3000, 4096);  // U8g2 字库渲染，栈需求大
+    sched_add(ws2812_indicator_loop,  20,   2048);  // 指示灯动画，栈需求小
 
     Serial.println(">> 系统初始化完成，等待总闸 KEY1 闭合...");
 }
