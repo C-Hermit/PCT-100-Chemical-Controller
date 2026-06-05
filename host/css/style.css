@@ -1,0 +1,221 @@
+/* ==================== Reset & Base ==================== */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #0369a1;
+    --primary-dark: #075985;
+    --primary-light: #e0f2fe;
+    --accent: #0284c7;
+    --text: #0f172a;
+    --text-secondary: #475569;
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --border: #e2e8f0;
+    --radius: 6px;
+    --green: #16a34a;
+    --green-bg: #dcfce7;
+    --red: #dc2626;
+    --red-bg: #fee2e2;
+    --gray-bg: #f1f5f9;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+    padding: 12px;
+    user-select: none;
+}
+
+/* ==================== Connection Bar ==================== */
+.conn-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.conn-input {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    outline: none;
+    min-width: 0;
+}
+
+.conn-input.sm { flex: 0 0 80px; }
+
+.conn-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.conn-status {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: var(--gray-bg);
+}
+
+.conn-status.online {
+    background: var(--green-bg);
+    color: var(--green);
+}
+
+.conn-status.offline {
+    background: var(--red-bg);
+    color: var(--red);
+}
+
+/* ==================== Buttons ==================== */
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn.conn {
+    background: var(--primary);
+    color: #fff;
+    flex: 0 0 auto;
+    padding: 8px 20px;
+}
+
+.btn.conn:hover { background: var(--primary-dark); }
+
+.btn.conn.disconnect {
+    background: var(--red);
+}
+
+.btn.ctrl {
+    background: var(--card-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    flex: 1;
+}
+
+.btn.ctrl:hover {
+    background: var(--primary-light);
+    border-color: var(--accent);
+    color: var(--primary);
+}
+
+.btn.sm {
+    padding: 6px 14px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 12px;
+}
+
+.btn.sm:hover { background: var(--primary-dark); }
+
+/* ==================== Panels ==================== */
+.panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 10px;
+}
+
+.panel-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+/* ==================== Status Cards ==================== */
+.grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.stat-card {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 10px;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.stat-val {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.stat-val.on  { color: var(--green); }
+.stat-val.off { color: var(--text-secondary); }
+
+/* ==================== Control Buttons ==================== */
+.btn-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.btn-row:last-child { margin-bottom: 0; }
+
+/* ==================== Form ==================== */
+.form-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.form-row label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    min-width: 110px;
+}
+
+.form-row input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    outline: none;
+}
+
+.form-row input:focus {
+    border-color: var(--accent);
+}
+
+/* ==================== Log ==================== */
+.log-box {
+    height: 100px;
+    overflow-y: auto;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 8px;
+    font-family: "Cascadia Code", "Fira Code", monospace;
+    line-height: 1.6;
+}
+
+.log-box .error { color: var(--red); }
+.log-box .info  { color: var(--primary); }

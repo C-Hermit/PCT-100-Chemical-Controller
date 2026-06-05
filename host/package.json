@@ -1,0 +1,25 @@
+{
+  "name": "pct-100-host",
+  "version": "1.0.0",
+  "description": "PCT-100 上位机 — 化工控制实训装置桌面监控",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.chemctrl.pct100-host",
+    "productName": "PCT-100 上位机",
+    "asar": false,
+    "win": {
+      "target": "portable"
+    }
+  },
+  "dependencies": {
+    "mqtt": "^5.10.0"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}
