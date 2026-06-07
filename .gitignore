@@ -3,3 +3,4 @@ presentation/
 host/dist
 host/node_modules
 package-lock.json
+.claude
