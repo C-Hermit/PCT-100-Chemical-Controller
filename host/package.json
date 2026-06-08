@@ -11,12 +11,14 @@
     "appId": "com.chemctrl.pct100-host",
     "productName": "PCT-100 上位机",
     "asar": true,
+    "compression": "maximum",
     "win": {
       "target": "portable"
     }
   },
   "dependencies": {
-    "mqtt": "^5.15.1"
+    "mqtt": "^5.15.1",
+    "v8-compile-cache": "^2.4.0"
   },
   "devDependencies": {
     "electron": "^34.5.8",

@@ -78,8 +78,13 @@ static void mqtt_reconnect(void) {
     if (!wifi_drv_is_connected()) return;
 
     static unsigned long last_reconnect = 0;
-    if (millis() - last_reconnect < 5000) return;
+    if (millis() - last_reconnect < 10000) return;
     last_reconnect = millis();
+
+    // 服务器未配置则跳过，避免无效的阻塞连接尝试
+    if (strlen(_config.server) == 0 || _config.port == 0) {
+        return;
+    }
 
     client.setServer(_config.server, _config.port);
 
@@ -90,6 +95,9 @@ static void mqtt_reconnect(void) {
     Serial.print(" ... ");
 
     String clientId = String(_config.device_id) + "-" + String(random(0, 0xffff), HEX);
+
+    // 设置较短的超时，避免阻塞主循环
+    espClient.setTimeout(3);
 
     bool ok = false;
     if (strlen(_config.user) > 0) {

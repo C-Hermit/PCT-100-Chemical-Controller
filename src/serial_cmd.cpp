@@ -23,7 +23,13 @@ static void print_help(void);
 void serial_cmd_loop(void) {
     if (Serial.available() <= 0) return;
 
+    // 同时接受 \r 和 \n 作为行尾，避免串口监视器设置不匹配导致无响应
     String input = Serial.readStringUntil('\n');
+    if (input.length() == 0) {
+        // 没有 \n，尝试 \r（兼容 Windows 终端的 CR 结尾）
+        input = Serial.readStringUntil('\r');
+    }
+    if (input.length() == 0) return;
     input.trim();
     if (input.length() == 0) return;
 
