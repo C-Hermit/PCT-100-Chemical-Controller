@@ -87,8 +87,35 @@ btnLog.addEventListener('click', () => {
     btnLog.textContent = collapsed ? '打开日志' : '关闭日志';
 });
 
+// ==================== 设置持久化 ====================
+const SETTINGS_KEY = 'pct100_settings';
+
+function loadSettings() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+        if (saved) {
+            if (saved.host)     iptHost.value   = saved.host;
+            if (saved.port)     iptPort.value   = saved.port;
+            if (saved.deviceId) iptDevice.value = saved.deviceId;
+            if (saved.user)     iptUser.value   = saved.user;
+            if (saved.pass)     iptPass.value   = saved.pass;
+        }
+    } catch (_) { /* ignore corrupted data */ }
+}
+
+function saveSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+        host:     iptHost.value.trim(),
+        port:     iptPort.value.trim(),
+        deviceId: iptDevice.value.trim(),
+        user:     iptUser.value.trim(),
+        pass:     iptPass.value.trim(),
+    }));
+}
+
 // ==================== MQTT 连接 ====================
 function doConnect() {
+    saveSettings();
     deviceId = iptDevice.value.trim();
     window.host.connect(
         iptHost.value.trim(),
@@ -141,11 +168,12 @@ window.host.onError((msg) => {
 
 // ==================== 约束控制 ====================
 
-// 根据电源+模式 更新 LED/风扇 禁用状态
+// 根据电源+模式 更新控件禁用状态
 function updateOutputEnable() {
     const canControl = connected && powerOn && currentMode === 'manual';
     toggleLed.disabled = !canControl;
     toggleFan.disabled = !canControl;
+    toggleMode.disabled = !(connected && powerOn);
 }
 
 function setAllDisabled(disabled) {
@@ -297,5 +325,6 @@ $('cmd-set-light-th').addEventListener('click', () => {
 });
 
 // ==================== 初始化 ====================
+loadSettings();
 updateConnectBtn();
 setAllDisabled(true);

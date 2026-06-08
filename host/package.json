@@ -10,7 +10,7 @@
   "build": {
     "appId": "com.chemctrl.pct100-host",
     "productName": "PCT-100 上位机",
-    "asar": false,
+    "asar": true,
     "win": {
       "target": "portable"
     }

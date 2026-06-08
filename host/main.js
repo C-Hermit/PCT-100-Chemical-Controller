@@ -65,13 +65,16 @@ function mqttConnect(host, port, deviceId, user, password) {
     });
 
     mqttClient.on('error', (err) => {
-        win.webContents.send('mqtt-error', err.message);
+        if (win && !win.isDestroyed()) {
+            win.webContents.send('mqtt-error', err.message);
+        }
     });
 }
 
 function mqttDisconnect() {
     stopPolling();
     if (mqttClient) {
+        mqttClient.removeAllListeners();
         mqttClient.end(true);
         mqttClient = null;
     }
