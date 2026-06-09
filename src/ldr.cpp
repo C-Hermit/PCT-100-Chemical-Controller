@@ -32,25 +32,6 @@ int ldr_read_average(void)
  */
 unsigned int ldr_get_lux(void)
 {
-    // int adc_val = ldr_read_average();
-    
-    // // 边界安全防御：防止分母为 0 或由于死区导致计算异常
-    // // 当 adc_val 极高（接近4095）时，代表全黑
-    // if (adc_val >= 4090) return 0;          
-
-    // // 1. 根据严密的代数推导计算 LDR 的实际阻值 (单位：欧姆)
-    // // 物理规律：光越亮，adc_val越小，r_ldr越小
-    // double r_ldr = ((double)adc_val * 10000.0) / (4095.0 - (double)adc_val);
-
-    // // 2. 兜底保护
-    // if (r_ldr <= 0) return 0;
-    
-    // // 3. 根据 GL5516 的特性曲线计算 Lux
-    // // 照度公式：Lux = (常数 / R_ldr) ^ (1 / γ)
-    // double lux = pow(3251652.0 / r_ldr, 1.4); 
-    
-    // return (unsigned int)lux;
-    // 获取均值滤波后的原始 ADC 值 (0 ~ 4095)
     int raw_adc = ldr_read_average();
     
     // 1. 安全边界兜底
