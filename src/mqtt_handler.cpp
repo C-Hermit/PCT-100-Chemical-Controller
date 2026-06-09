@@ -7,14 +7,14 @@
 
 // ==================== 前向声明 ====================
 
-static void mqtt_callback_handler(char* topic, byte* payload, unsigned int length);
+static void mqtt_handler_callback(char* topic, byte* payload, unsigned int length);
 
 // ==================== 初始化 ====================
 
 void mqtt_handler_init(void) {
     // MQTT 客户端初始化已在外部完成
     // 只负责注册回调
-    mqtt_client_set_callback(mqtt_callback_handler);
+    mqtt_client_set_callback(mqtt_handler_callback);
 }
 
 // ==================== 状态上报 ====================
@@ -26,8 +26,8 @@ void mqtt_handler_send_status(void) {
     doc["light"]       = sys.current_lux;
     doc["mode"]        = sys.is_auto ? "auto" : "manual";
     doc["key1_lock"]   = sys.power_on;
-    doc["relay3"]      = (get_led_status() == RELAY_ON);
-    doc["relay4"]      = (get_fun_status() == RELAY_ON);
+    doc["relay3"]      = (relay_get_led() == RELAY_ON);
+    doc["relay4"]      = (relay_get_fan() == RELAY_ON);
     doc["temp_th"]     = sys.temp_th;
     doc["light_th"]    = sys.light_th;
 
@@ -77,7 +77,7 @@ static void handle_json_command(JsonDocument& doc) {
 
 // ==================== PubSubClient 回调 ====================
 
-void mqtt_callback_handler(char* topic, byte* payload, unsigned int length) {
+static void mqtt_handler_callback(char* topic, byte* payload, unsigned int length) {
     if (!sys.power_on) {
         Serial.println(">> [MQTT 拒绝]: 总闸关闭，忽略远程命令。");
         return;

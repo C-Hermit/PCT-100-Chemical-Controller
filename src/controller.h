@@ -26,7 +26,7 @@ void ctrl_power_off(void);
 void ctrl_set_mqtt_server(const char* ip, uint16_t port);
 void ctrl_set_mqtt_auth(const char* user, const char* pass);
 void ctrl_set_mqtt_device_id(const char* id);
-void ctrl_mqtt_print_status(void);
-void ctrl_mqtt_reconnect(void);
+void ctrl_print_mqtt_status(void);
+void ctrl_reconnect_mqtt(void);
 
 #endif

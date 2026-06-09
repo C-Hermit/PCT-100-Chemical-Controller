@@ -73,9 +73,6 @@ void loop() {
         mqtt_client_loop();
     }
 
-    // ── 驱动层轮询 ──
-    key_scan();
-
     // ── 刷新系统状态快照（供业务层指示灯等模块使用）──
     sys.wifi_connected = wifi_drv_is_connected();
     sys.mqtt_connected = sys.wifi_connected && mqtt_client_is_connected();

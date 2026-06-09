@@ -56,7 +56,7 @@ uint8_t key_getstate(uint8_t n)
     return KEY_RELEASE;
 }
 /**
- * @brief 按键扫描函数
+ * @brief 按键扫描函数（由 FreeRTOS 任务每 20ms 调用一次）
  * 包含 20ms 的软件消抖逻辑
  */
 void key_scan(void)
@@ -66,60 +66,51 @@ void key_scan(void)
     static uint8_t state[KEY_COUNT];
     static uint16_t time_cnt[KEY_COUNT];
 
-    static unsigned long pre_cnt=0;
-    unsigned long cur_cnt=millis();
-
-    
-    // 20ms 定时轮询 KEY1
-    if (cur_cnt - pre_cnt >= 20) 
+    for (i = 0; i < KEY_COUNT; i++)
     {
-        pre_cnt = cur_cnt;
-        for (i = 0; i < KEY_COUNT; i++)
+        pre_state[i]=cur_state[i];
+        cur_state[i]=key_getstate(i);
+
+        if(time_cnt[i]>0)
         {
-            pre_state[i]=cur_state[i];
-            cur_state[i]=key_getstate(i);
+            time_cnt[i]--;
+        }
 
-            if(time_cnt[i]>0)
-            {
-                time_cnt[i]--;
-            }
+        if(cur_state[i]==KEY_PRESS)
+        {
+            key_flag[i]|=KEY_HOLD;
+        }
+        else
+        {
+            key_flag[i]&=~KEY_HOLD;
+        }
 
+        if(state[i]==0)
+        {
             if(cur_state[i]==KEY_PRESS)
             {
-                key_flag[i]|=KEY_HOLD;
+                time_cnt[i]=KEY_TIME_LONG;
+                state[i]=1;
             }
-            else
+        }
+        else if(state[i]==1)
+        {
+            if(cur_state[i]==KEY_RELEASE)
             {
-                key_flag[i]&=~KEY_HOLD;
+                key_flag[i]|=KEY_SIGNED;
+                state[i]=0;
             }
-            
-            if(state[i]==0)
+            else if(time_cnt[i]==0)
             {
-                if(cur_state[i]==KEY_PRESS)
-                {
-                    time_cnt[i]=KEY_TIME_LONG;
-                    state[i]=1;
-                }
+                key_flag[i]|=KEY_LONG;
+                state[i]=2;
             }
-            else if(state[i]==1)
+        }
+        else if(state[i]==2)
+        {
+            if(cur_state[i]==KEY_RELEASE)
             {
-                if(cur_state[i]==KEY_RELEASE)
-                {
-                    key_flag[i]|=KEY_SIGNED;
-                    state[i]=0;
-                }
-                else if(time_cnt[i]==0)
-                {
-                    key_flag[i]|=KEY_LONG;
-                    state[i]=2;
-                }
-            }
-            else if(state[i]==2)
-            {
-                if(cur_state[i]==KEY_RELEASE)
-                {
-                    state[i]=0;
-                }
+                state[i]=0;
             }
         }
     }

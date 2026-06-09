@@ -191,15 +191,15 @@ static void cmd_get_status(void) {
                   (sys.manual_code & 0x01) ? 1 : 0);
     Serial.printf("  温度:      %.1f / %.1f °C\n", sys.current_temp, sys.temp_th);
     Serial.printf("  光照:      %u / %u Lux\n", sys.current_lux, sys.light_th);
-    Serial.printf("  灯光:      %s\n", (get_led_status() == RELAY_ON) ? "ON" : "OFF");
-    Serial.printf("  风扇:      %s\n", (get_fun_status() == RELAY_ON) ? "ON" : "OFF");
+    Serial.printf("  灯光:      %s\n", (relay_get_led() == RELAY_ON) ? "ON" : "OFF");
+    Serial.printf("  风扇:      %s\n", (relay_get_fan() == RELAY_ON) ? "ON" : "OFF");
     Serial.println("====================================");
 }
 
 // ==================== MQTT 命令实现 ====================
 
 static void cmd_mqtt_status(void) {
-    ctrl_mqtt_print_status();
+    ctrl_print_mqtt_status();
 }
 
 static void cmd_mqtt_set(String args) {
@@ -248,7 +248,7 @@ static void cmd_mqtt_set(String args) {
 }
 
 static void cmd_mqtt_reconnect(void) {
-    ctrl_mqtt_reconnect();
+    ctrl_reconnect_mqtt();
 }
 
 static void print_help(void) {

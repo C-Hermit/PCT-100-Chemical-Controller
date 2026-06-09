@@ -12,16 +12,18 @@
 // scheduler 的 OLED 任务 ID（内部使用，由 ctrl_init 注册）
 static int ctrl_oled_task_id;
 
-static void task_oled_refresh(void) { oled_ui_refresh(sys); }
+static void ctrl_key_scan(void)   { key_scan(); }
+static void ctrl_oled_refresh(void) { oled_ui_refresh(sys); }
 
 // ==================== 初始化 ====================
 
 void ctrl_init(void) {
     // 注册定时任务（周期 ms, 栈大小字节）
+    sched_add(ctrl_key_scan,   20,   2048);
     sched_add(ctrl_key_logic,  20,   2048);
     sched_add(ctrl_auto_light, 50,   2048);
     sched_add(ctrl_auto_fan,   2000, 4096);
-    ctrl_oled_task_id = sched_add(task_oled_refresh, 3000, 4096);
+    ctrl_oled_task_id = sched_add(ctrl_oled_refresh, 3000, 4096);
 }
 
 // ==================== 按键状态机 ====================
@@ -39,8 +41,8 @@ void ctrl_key_logic(void) {
     } else {
         if (sys.power_on) {
             sys.power_on = false;
-            set_led_status(RELAY_OFF);
-            set_fun_status(RELAY_OFF);
+            relay_set_led(RELAY_OFF);
+            relay_set_fan(RELAY_OFF);
             sys.led_relay_on = false;
             sys.fan_relay_on = false;
             sys.manual_code = 0;
@@ -66,8 +68,8 @@ void ctrl_key_logic(void) {
         Serial.printf(">> [KEY2短按]: 手动状态 -> %d%d\n",
                       (sys.manual_code & 0x02) ? 1 : 0,
                       (sys.manual_code & 0x01) ? 1 : 0);
-        set_led_status((sys.manual_code & 0x02) ? RELAY_ON : RELAY_OFF);
-        set_fun_status((sys.manual_code & 0x01) ? RELAY_ON : RELAY_OFF);
+        relay_set_led((sys.manual_code & 0x02) ? RELAY_ON : RELAY_OFF);
+        relay_set_fan((sys.manual_code & 0x01) ? RELAY_ON : RELAY_OFF);
         sys.led_relay_on = (sys.manual_code & 0x02);
         sys.fan_relay_on = (sys.manual_code & 0x01);
         sched_wake(ctrl_oled_task_id);
@@ -84,7 +86,7 @@ void ctrl_auto_light(void) {
     if (sys.is_auto) {
         bool on = (sys.current_lux < sys.light_th);
         if (on != sys.led_relay_on) {
-            set_led_status(on ? RELAY_ON : RELAY_OFF);
+            relay_set_led(on ? RELAY_ON : RELAY_OFF);
             sys.led_relay_on = on;
             sched_wake(ctrl_oled_task_id);
             mqtt_handler_send_status();
@@ -99,7 +101,7 @@ void ctrl_auto_fan(void) {
     if (sys.is_auto) {
         bool on = (sys.current_temp > sys.temp_th);
         if (on != sys.fan_relay_on) {
-            set_fun_status(on ? RELAY_ON : RELAY_OFF);
+            relay_set_fan(on ? RELAY_ON : RELAY_OFF);
             sys.fan_relay_on = on;
             sched_wake(ctrl_oled_task_id);
             mqtt_handler_send_status();
@@ -111,11 +113,11 @@ void ctrl_auto_fan(void) {
 
 void ctrl_set_relay(int id, bool on) {
     if (id == 3) {
-        set_led_status(on ? RELAY_ON : RELAY_OFF);
+        relay_set_led(on ? RELAY_ON : RELAY_OFF);
         sys.led_relay_on = on;
         if (on) sys.manual_code |= 0x02; else sys.manual_code &= ~0x02;
     } else if (id == 4) {
-        set_fun_status(on ? RELAY_ON : RELAY_OFF);
+        relay_set_fan(on ? RELAY_ON : RELAY_OFF);
         sys.fan_relay_on = on;
         if (on) sys.manual_code |= 0x01; else sys.manual_code &= ~0x01;
     }
@@ -143,8 +145,8 @@ void ctrl_set_light_threshold(unsigned int l) {
 
 void ctrl_power_off(void) {
     sys.power_on = false;
-    set_led_status(RELAY_OFF);
-    set_fun_status(RELAY_OFF);
+    relay_set_led(RELAY_OFF);
+    relay_set_fan(RELAY_OFF);
     sys.led_relay_on = false;
     sys.fan_relay_on = false;
     sys.manual_code = 0;
@@ -185,7 +187,7 @@ void ctrl_set_mqtt_device_id(const char* id) {
     mqtt_client_update_config(&cfg);
 }
 
-void ctrl_mqtt_print_status(void) {
+void ctrl_print_mqtt_status(void) {
     const mqtt_config_t* cfg = mqtt_client_get_config();
     Serial.println("\n============ [MQTT 配置] ============");
     Serial.printf("  服务器:   %s:%u\n", cfg->server, cfg->port);
@@ -195,6 +197,6 @@ void ctrl_mqtt_print_status(void) {
     Serial.println("======================================");
 }
 
-void ctrl_mqtt_reconnect(void) {
+void ctrl_reconnect_mqtt(void) {
     mqtt_client_force_reconnect();
 }
