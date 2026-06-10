@@ -22,8 +22,8 @@ void ctrl_init(void) {
     sched_add(ctrl_key_scan,   20,   2048);
     sched_add(ctrl_key_logic,  20,   2048);
     sched_add(ctrl_auto_light, 50,   2048);
-    sched_add(ctrl_auto_fan,   2000, 4096);
-    ctrl_oled_task_id = sched_add(ctrl_oled_refresh, 3000, 4096);
+    sched_add(ctrl_auto_fan,   200, 4096);
+    ctrl_oled_task_id = sched_add(ctrl_oled_refresh, 500, 4096);
 }
 
 // ==================== 按键状态机 ====================
